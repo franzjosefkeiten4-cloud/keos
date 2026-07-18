@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KEOS – Pilot</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+    <p class="eyebrow">Keiten Enterprise Operating System</p>
+
+    <h1>Guten Morgen Franz-Josef 👋</h1>
+
+    <p style="margin-top:10px;font-size:18px;">
+        Heute triffst du Entscheidungen, die Menschen besser schlafen, wohnen und arbeiten lassen.
+    </p>
+</div>
+    <span class="status">Version 0.1</span>
+  </header>
+  <main class="layout">
+    <section class="hero card">
+      <div><p class="eyebrow">Montagmorgen</p><h2>🎯 Deine wichtigste Entscheidung</h2>
+
+<div id="decisionCard"></div>
+      <p>Die erste nutzbare KEOS-Version priorisiert Aufgaben nach Meisterregeln.</p></div>
+      <button id="refreshButton" class="primary">Prioritäten neu ordnen</button>
+    </section>
+    <section class="grid">
+      <article class="card">
+        <div class="card-head"><h3>Heute zuerst</h3><span id="taskCount" class="badge">0 Aufgaben</span></div>
+        <div id="taskList" class="task-list"></div>
+      </article>
+      <article class="card">
+        <h3>Aktive Meisterregeln</h3>
+        <ol class="rules">
+          <li><strong>MR-001:</strong> Versprechen zuerst.</li>
+          <li><strong>MR-002:</strong> Reklamation vor Umsatz.</li>
+          <li><strong>MR-003:</strong> Kaufbereite Kunden vor kalten Leads.</li>
+          <li><strong>MR-004:</strong> Zufriedenheit vor neuer Reichweite.</li>
+        </ol>
+      </article>
+    </section>
+    <section class="card feedback">
+      <div><p class="eyebrow">Lernschleife</p><h3>Was hat heute gefehlt?</h3>
+      <p>Die Rückmeldung wird zunächst lokal im Browser gespeichert.</p></div>
+      <form id="feedbackForm">
+        <textarea id="feedbackInput" rows="4" placeholder="Zum Beispiel: Ich brauche eine Ansicht für Rückrufe."></textarea>
+        <button class="primary" type="submit">Rückmeldung speichern</button>
+        <p id="feedbackMessage" class="message"></p>
+      </form>
+    </section>
+  </main>
+  <footer>KEOS · Pilotbetrieb · Schreinerei Keiten</footer>
+  <script src="./app.js"></script>
+</body>
+</html>

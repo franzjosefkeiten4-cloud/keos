@@ -1,0 +1,29 @@
+{
+  "greeting": "Guten Morgen Franz-Josef 👋",
+
+  "todayMessage": "Heute triffst du Entscheidungen, die Menschen besser schlafen, wohnen und arbeiten lassen.",
+
+  "decision": {
+    "title": "Offene Reklamation Müller",
+    "reason": "MR-002 – Reklamation vor Umsatz."
+  },
+
+  "tasks": [
+    {
+      "title": "Offene Reklamation prüfen",
+      "rule": "MR-002"
+    },
+    {
+      "title": "Zugesagte Unterlagen versenden",
+      "rule": "MR-001"
+    },
+    {
+      "title": "Kaufbereiten Kunden zurückrufen",
+      "rule": "MR-003"
+    },
+    {
+      "title": "Nachbetreuung nach sechs Wochen",
+      "rule": "MR-004"
+    }
+  ]
+}
