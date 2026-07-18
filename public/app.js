@@ -440,6 +440,122 @@ window.addEventListener('load', async () => {
     }
 });
 
+// --- Arbeitshypothese: rule-based generation from summary ---
+const hypothesisKeyFor = (vorgangId) => `keosVorgangHypothesis:${vorgangId}`;
+const loadHypothesisLocal = (vorgangId) => {
+    try {
+        const raw = localStorage.getItem(hypothesisKeyFor(vorgangId));
+        if (!raw) return null;
+        return String(raw);
+    } catch (e) {
+        return null;
+    }
+};
+const saveHypothesisLocal = (vorgangId, text) => {
+    try {
+        localStorage.setItem(hypothesisKeyFor(vorgangId), String(text || ''));
+    } catch (e) {
+        console.error('Speichern der Arbeitshypothese fehlgeschlagen', e);
+    }
+};
+
+const generateHypothesisFromSummary = (summary) => {
+    if (!summary || !String(summary).trim()) return '';
+    const s = String(summary).trim();
+    // Ensure explicit phrasing and mark as prüfbare Annahme
+    return `Auf Basis der bisher vorliegenden Informationen ergibt sich folgende Arbeitshypothese: (Prüfbare Annahme) ${s}`;
+};
+
+const renderHypothesis = async (vorgang) => {
+    const display = document.getElementById('hypothesisDisplay');
+    const actions = document.getElementById('hypothesisActions');
+    const editor = document.getElementById('hypothesisEditor');
+    const textarea = document.getElementById('hypothesisTextarea');
+    if (!display) return;
+
+    const saved = loadHypothesisLocal(vorgang.id);
+    if (saved) {
+        display.textContent = saved;
+        if (actions) actions.style.display = 'block';
+    } else {
+        // if no saved hypothesis, but summary exists (either saved or generated in DOM), generate one
+        const summaryEl = document.getElementById('summaryDisplay');
+        const summaryText = summaryEl ? summaryEl.textContent : '';
+        if (summaryText && summaryText !== 'Keine Zusammenfassung vorhanden.') {
+            const gen = generateHypothesisFromSummary(summaryText);
+            display.textContent = gen;
+            if (actions) actions.style.display = 'block';
+        } else {
+            display.textContent = 'Keine Arbeitshypothese vorhanden.';
+            if (actions) actions.style.display = 'none';
+        }
+    }
+    if (editor) editor.style.display = 'none';
+    if (textarea) textarea.value = '';
+
+    // wire buttons
+    const adoptBtn = document.getElementById('hypothesisAdopt');
+    const editBtn = document.getElementById('hypothesisEdit');
+    const saveBtn = document.getElementById('hypothesisSave');
+    const cancelBtn = document.getElementById('hypothesisCancel');
+
+    if (adoptBtn) adoptBtn.onclick = () => {
+        const cur = display.textContent || '';
+        if (cur && cur !== 'Keine Arbeitshypothese vorhanden.') {
+            saveHypothesisLocal(vorgang.id, cur);
+            renderHypothesis(vorgang);
+        }
+    };
+
+    if (editBtn) editBtn.onclick = () => {
+        if (!editor || !textarea) return;
+        textarea.value = display.textContent === 'Keine Arbeitshypothese vorhanden.' ? '' : display.textContent;
+        editor.style.display = 'block';
+        if (actions) actions.style.display = 'none';
+    };
+
+    if (saveBtn) saveBtn.onclick = () => {
+        if (!textarea) return;
+        const txt = textarea.value.trim();
+        if (!txt) return;
+        saveHypothesisLocal(vorgang.id, txt);
+        renderHypothesis(vorgang);
+    };
+
+    if (cancelBtn) cancelBtn.onclick = () => {
+        if (editor) editor.style.display = 'none';
+        if (actions) actions.style.display = saved ? 'block' : 'none';
+    };
+};
+
+// Observe summary changes in DOM to update hypothesis (covers generated summaries)
+const summaryEl = document.getElementById('summaryDisplay');
+if (summaryEl) {
+    const mo = new MutationObserver(async () => {
+        try {
+            const response = await fetch("../data/vorgaenge/VG-0001.json");
+            if (!response.ok) return;
+            const vorgang = await response.json();
+            await renderHypothesis(vorgang);
+        } catch (e) {
+            // ignore
+        }
+    });
+    mo.observe(summaryEl, { childList: true, characterData: true, subtree: true });
+}
+
+// ensure hypothesis rendered after initial load
+window.addEventListener('load', async () => {
+    try {
+        const response = await fetch("../data/vorgaenge/VG-0001.json");
+        if (!response.ok) return;
+        const vorgang = await response.json();
+        await renderHypothesis(vorgang);
+    } catch (e) {
+        // ignore
+    }
+});
+
 window.addEventListener('load', async () => {
     try {
         const response = await fetch("../data/vorgaenge/VG-0001.json");
