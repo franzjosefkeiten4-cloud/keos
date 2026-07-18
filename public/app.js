@@ -447,55 +447,124 @@ const startObservationInterview = () => {
             if (!response.ok) return resolve(null);
             const vorgang = await response.json();
 
-        const questions = [
-            'Was ist passiert?',
-            'Warum ist das wichtig?',
-            'Welche Auswirkung hat das?',
-            'Was ist sicher?',
-            'Was vermutest du?'
-        ];
+            const questions = [
+                'Was ist passiert?',
+                'Warum ist das wichtig?',
+                'Welche Auswirkung hat das?',
+                'Was ist sicher?',
+                'Was vermutest du?'
+            ];
 
-        openModal();
+            // modal elements
+            const modal = document.getElementById('observationModal');
+            const questionEl = document.getElementById('modalQuestion');
+            const progressEl = document.getElementById('modalProgress');
+            const input = document.getElementById('modalInput');
+            const mic = document.getElementById('modalMic');
+            const speechMsg = document.getElementById('modalSpeechMessage');
+            const reactionEl = document.getElementById('modalReaction');
+            const nextBtn = document.getElementById('modalNext');
+            const cancelBtn = document.getElementById('modalCancel');
+            if (!modal || !questionEl || !progressEl || !input || !mic || !nextBtn || !cancelBtn) {
+                console.error('Interview Modal Elemente fehlen');
+                return resolve(null);
+            }
 
-        cancelBtn.onclick = () => {
-            // abort interview, do not save
-            abort();
-            resolve(null);
-        };
+            let current = 0;
+            const answers = Array(questions.length).fill('');
+            let recognition = null;
 
-        nextBtn.onclick = () => {
-        const cancelBtn = document.getElementById('modalCancel');
-        if (!modal || !questionEl || !progressEl || !input || !mic || !nextBtn || !cancelBtn) {
-            console.error('Interview Modal Elemente fehlen');
-            return;
-        }
+            const openModal = () => {
+                modal.style.display = 'flex';
+                updateView();
+            };
+            const closeModal = () => {
+                modal.style.display = 'none';
+            };
 
-        let current = 0;
-        const answers = Array(questions.length).fill('');
-        let recognition = null;
-                    cleanupHandlers(); closeModal(); return resolve(null);
-        const openModal = () => {
-            modal.style.display = 'flex';
-            updateView();
-        };
-        const closeModal = () => {
-            modal.style.display = 'none';
-        };
+            const stopRecognition = () => {
+                try {
+                    if (recognition && typeof recognition.stop === 'function') recognition.stop();
+                } catch (e) {}
+                recognition = null;
+            };
 
-        const stopRecognition = () => {
-            try {
-                if (recognition && typeof recognition.stop === 'function') recognition.stop();
-            } catch (e) {}
-            recognition = null;
-        };
+            const updateView = () => {
+                questionEl.textContent = questions[current];
+                progressEl.textContent = `Frage ${current + 1} von ${questions.length}`;
+                input.value = answers[current] || '';
+                if (speechMsg) speechMsg.textContent = '';
+                if (reactionEl) reactionEl.textContent = '';
+                // init speech for this modal input
+                stopRecognition();
+                recognition = createSpeechRecognition(mic, input, speechMsg);
+                nextBtn.disabled = false;
+            };
 
-                cleanupHandlers(); closeModal(); renderBeobachtungen(vorgang);
-                return resolve(obs);
-            questionEl.textContent = questions[current];
-            progressEl.textContent = `Frage ${current + 1} von ${questions.length}`;
-            input.value = answers[current] || '';
-            if (speechMsg) speechMsg.textContent = '';
-            // init speech for this modal input
+            const cleanupHandlers = () => {
+                stopRecognition();
+                nextBtn.onclick = null;
+                cancelBtn.onclick = null;
+            };
+
+            const abort = () => {
+                cleanupHandlers();
+                closeModal();
+            };
+
+            openModal();
+
+            cancelBtn.onclick = () => {
+                // abort interview, do not save
+                abort();
+                return resolve(null);
+            };
+
+            nextBtn.onclick = () => {
+                // stop any running recognition before proceeding
+                try { if (recognition && typeof recognition.stop === 'function') recognition.stop(); } catch (e) {}
+                // store current answer
+                answers[current] = (input.value || '').trim();
+                // if last question, finalize
+                if (current === questions.length - 1) {
+                    const anyNonEmpty = answers.some(a => a && a.length > 0);
+                    if (!anyNonEmpty) {
+                        // nothing to save
+                        cleanupHandlers(); closeModal(); return resolve(null);
+                    }
+                    const obs = {
+                        id: `BE-${Date.now()}`,
+                        wasIstPassiert: answers[0],
+                        warumWichtig: answers[1],
+                        auswirkung: answers[2],
+                        wasIstSicher: answers[3],
+                        wasVermutestDu: answers[4],
+                        erstelltAm: new Date().toISOString(),
+                        quelle: 'manuell'
+                    };
+                    const local = loadObservationsLocal(vorgang.id);
+                    local.push(obs);
+                    saveObservationsLocal(vorgang.id, local);
+                    try { appendSystemLog('Beobachtung erstellt', vorgang.id, `Beobachtung ${obs.id} erstellt`); } catch (e) {}
+                    cleanupHandlers(); closeModal(); renderBeobachtungen(vorgang);
+                    return resolve(obs);
+                }
+                // non-final: show short reaction then advance
+                const reactions = [
+                    'Danke.',
+                    'Verstanden.',
+                    'Das habe ich notiert.',
+                    'Ich glaube, ich verstehe.'
+                ];
+                const pick = reactions[Math.floor(Math.random() * reactions.length)];
+                if (reactionEl) reactionEl.textContent = pick;
+                // briefly disable next to simulate natural pause
+                nextBtn.disabled = true;
+                setTimeout(() => {
+                    current += 1;
+                    updateView();
+                }, 900);
+            };
 
         } catch (e) {
             console.error('Beobachtungs-Interview fehlgeschlagen', e);
@@ -503,64 +572,8 @@ const startObservationInterview = () => {
         }
     });
 };
-            stopRecognition();
-            nextBtn.onclick = null;
-            cancelBtn.onclick = null;
-        };
-
-        const abort = () => {
-            cleanupHandlers();
-            closeModal();
-        };
-
-        openModal();
-
-        cancelBtn.onclick = () => {
-            // abort interview, do not save
-            abort();
-        };
-
-        nextBtn.onclick = () => {
-            // stop any running recognition before proceeding
-            try { if (recognition && typeof recognition.stop === 'function') recognition.stop(); } catch (e) {}
-            // store current answer
-            answers[current] = (input.value || '').trim();
-            // if last question, finalize
-            if (current === questions.length - 1) {
-                const anyNonEmpty = answers.some(a => a && a.length > 0);
-                if (!anyNonEmpty) {
-                    // nothing to save
-                    cleanupHandlers(); closeModal(); return;
-                }
-                const obs = {
-                    id: `BE-${Date.now()}`,
-                    wasIstPassiert: answers[0],
-                    warumWichtig: answers[1],
-                    auswirkung: answers[2],
-                    wasIstSicher: answers[3],
-                    wasVermutestDu: answers[4],
-                    erstelltAm: new Date().toISOString(),
-                    quelle: 'manuell'
-                };
-                const local = loadObservationsLocal(vorgang.id);
-                local.push(obs);
-                saveObservationsLocal(vorgang.id, local);
-                try { appendSystemLog('Beobachtung erstellt', vorgang.id, `Beobachtung ${obs.id} erstellt`); } catch (e) {}
-                cleanupHandlers(); closeModal(); renderBeobachtungen(vorgang);
-                return;
-            }
-            // move to next
-            current += 1;
-            updateView();
-        };
-
-    } catch (e) {
-        console.error('Beobachtungs-Interview fehlgeschlagen', e);
-    }
-};
 
 const obsBtn = document.getElementById('startObservationInterview');
-if (obsBtn) obsBtn.onclick = startObservationInterview;
 
 // --- Summary generation and local save (rule-based, no AI) ---
 const summaryKeyFor = (vorgangId) => `keosVorgangSummary:${vorgangId}`;
@@ -715,8 +728,7 @@ const enhancedStartObservationInterview = async () => {
     }
 };
 
-// rebind observation button to enhanced wrapper
-if (obsBtn) obsBtn.onclick = enhancedStartObservationInterview;
+// (rebindings happen later) keep single final binding
 
 // --- Recap confirmation / correction loop ---
 const observationsMetaKeyFor = (vorgangId) => `keosVorgangObservationsMeta:${vorgangId}`;
