@@ -230,6 +230,54 @@ const initSpeechRecognitionInput = () => {
 
 window.addEventListener('load', initSpeechRecognitionInput);
 
+const pilotFeedbackKey = 'keosPilotFeedback';
+const initPilotFeedback = () => {
+    const button = document.getElementById('pilotFeedbackButton');
+    const dialog = document.getElementById('pilotFeedbackDialog');
+    const send = document.getElementById('pilotFeedbackSend');
+    const cancel = document.getElementById('pilotFeedbackCancel');
+    const liked = document.getElementById('pilotFeedbackLiked');
+    const unclear = document.getElementById('pilotFeedbackUnclear');
+    const idea = document.getElementById('pilotFeedbackIdea');
+    if (!button || !dialog || !send || !cancel || !liked || !unclear || !idea) return;
+
+    button.onclick = () => {
+        dialog.style.display = 'flex';
+    };
+    cancel.onclick = () => {
+        dialog.style.display = 'none';
+        liked.value = '';
+        unclear.value = '';
+        idea.value = '';
+    };
+    send.onclick = () => {
+        const feedback = {
+            timestamp: new Date().toISOString(),
+            liked: liked.value.trim(),
+            unclear: unclear.value.trim(),
+            idea: idea.value.trim()
+        };
+        try {
+            const raw = localStorage.getItem(pilotFeedbackKey);
+            const stored = raw ? JSON.parse(raw) : [];
+            const list = Array.isArray(stored) ? stored : [];
+            list.push(feedback);
+            localStorage.setItem(pilotFeedbackKey, JSON.stringify(list));
+        } catch (e) {
+            console.error('Feedback konnte nicht gespeichert werden', e);
+        }
+        console.log('Pilot-Feedback:', feedback);
+        dialog.style.display = 'none';
+        liked.value = '';
+        unclear.value = '';
+        idea.value = '';
+    };
+
+    document.body.style.paddingBottom = '64px';
+};
+
+window.addEventListener('load', initPilotFeedback);
+
 // Beobachtungen: Interview und Anzeige (keine bestehenden Funktionen ändern)
 const observationsKeyFor = (vorgangId) => `keosVorgangObservations:${vorgangId}`;
 

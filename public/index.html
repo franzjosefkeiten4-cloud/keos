@@ -145,6 +145,25 @@
       </form>
     </section>
   </main>
+  <div id="pilotBar" style="position:fixed;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 20px;background:rgba(255,255,255,0.96);border-top:1px solid rgba(71,72,26,.12);font-size:0.9rem;z-index:1000;backdrop-filter:blur(8px);">
+    <div>KEOS v0.3.1 · Build-Datum: 2026-07-18 · Status: Firebase Live</div>
+    <button id="pilotFeedbackButton" class="secondary" type="button">💬 Feedback</button>
+  </div>
+  <div id="pilotFeedbackDialog" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.35);z-index:1001;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:#ffffff;max-width:560px;width:100%;border-radius:20px;padding:20px;box-shadow:0 25px 60px rgba(0,0,0,0.18);">
+      <h3 style="margin-top:0;">Pilot-Feedback</h3>
+      <p>Was hat dir gefallen?</p>
+      <textarea id="pilotFeedbackLiked" rows="2" style="width:100%;margin-bottom:12px;border:1px solid rgba(71,72,26,.2);border-radius:12px;padding:12px;"></textarea>
+      <p>Was war unklar?</p>
+      <textarea id="pilotFeedbackUnclear" rows="2" style="width:100%;margin-bottom:12px;border:1px solid rgba(71,72,26,.2);border-radius:12px;padding:12px;"></textarea>
+      <p>Welche Idee hast du?</p>
+      <textarea id="pilotFeedbackIdea" rows="2" style="width:100%;margin-bottom:16px;border:1px solid rgba(71,72,26,.2);border-radius:12px;padding:12px;"></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:10px;">
+        <button id="pilotFeedbackCancel" class="secondary" type="button">Abbrechen</button>
+        <button id="pilotFeedbackSend" class="primary" type="button">Speichern</button>
+      </div>
+    </div>
+  </div>
   <footer>KEOS · Pilotbetrieb · Schreinerei Keiten</footer>
   <script type="module" src="./app.js"></script>
 </body>
