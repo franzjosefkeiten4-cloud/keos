@@ -274,6 +274,172 @@ const startObservationInterview = async () => {
 const obsBtn = document.getElementById('startObservationInterview');
 if (obsBtn) obsBtn.onclick = startObservationInterview;
 
+// --- Summary generation and local save (rule-based, no AI) ---
+const summaryKeyFor = (vorgangId) => `keosVorgangSummary:${vorgangId}`;
+const loadSummaryLocal = (vorgangId) => {
+    try {
+        const raw = localStorage.getItem(summaryKeyFor(vorgangId));
+        if (!raw) return null;
+        return String(raw);
+    } catch (e) {
+        return null;
+    }
+};
+const saveSummaryLocal = (vorgangId, text) => {
+    try {
+        localStorage.setItem(summaryKeyFor(vorgangId), String(text || ''));
+    } catch (e) {
+        console.error('Speichern der Zusammenfassung fehlgeschlagen', e);
+    }
+};
+
+const renderSummary = (vorgang) => {
+    const display = document.getElementById('summaryDisplay');
+    const actions = document.getElementById('summaryActions');
+    const editor = document.getElementById('summaryEditor');
+    const textarea = document.getElementById('summaryTextarea');
+    if (!display) return;
+
+    const saved = loadSummaryLocal(vorgang.id);
+    if (saved) {
+        display.textContent = saved;
+        if (actions) actions.style.display = 'block';
+    } else {
+        display.textContent = 'Keine Zusammenfassung vorhanden.';
+        if (actions) actions.style.display = 'none';
+    }
+    if (editor) editor.style.display = 'none';
+    if (textarea) textarea.value = '';
+
+    // wire action buttons
+    const adoptBtn = document.getElementById('summaryAdopt');
+    const editBtn = document.getElementById('summaryEdit');
+    const saveBtn = document.getElementById('summarySave');
+    const cancelBtn = document.getElementById('summaryCancel');
+
+    if (adoptBtn) {
+        adoptBtn.onclick = () => {
+            const current = display.textContent || '';
+            if (current && current !== 'Keine Zusammenfassung vorhanden.') {
+                saveSummaryLocal(vorgang.id, current);
+                renderSummary(vorgang);
+            }
+        };
+    }
+
+    if (editBtn) {
+        editBtn.onclick = () => {
+            if (!editor || !textarea) return;
+            textarea.value = display.textContent === 'Keine Zusammenfassung vorhanden.' ? '' : display.textContent;
+            editor.style.display = 'block';
+            if (actions) actions.style.display = 'none';
+        };
+    }
+
+    if (saveBtn) {
+        saveBtn.onclick = () => {
+            if (!textarea) return;
+            const txt = textarea.value.trim();
+            if (!txt) return;
+            saveSummaryLocal(vorgang.id, txt);
+            renderSummary(vorgang);
+        };
+    }
+
+    if (cancelBtn) {
+        cancelBtn.onclick = () => {
+            if (editor) editor.style.display = 'none';
+            if (actions) actions.style.display = saved ? 'block' : 'none';
+        };
+    }
+};
+
+const generateSummaryFromAnswers = (answers) => {
+    // simple rule-based concatenation from the five answers
+    const a = answers.map(x => x ? x.trim() : '');
+    const parts = [];
+    if (a[0]) parts.push(`Beobachtung: ${a[0]}.`);
+    if (a[1]) parts.push(`Wichtigkeit: ${a[1]}.`);
+    if (a[2]) parts.push(`Auswirkung: ${a[2]}.`);
+    if (a[3]) parts.push(`Sicher ist: ${a[3]}.`);
+    if (a[4]) parts.push(`Vermutung: ${a[4]}.`);
+    return parts.join(' ');
+};
+
+const showGeneratedSummary = (text, vorgang) => {
+    const display = document.getElementById('summaryDisplay');
+    const actions = document.getElementById('summaryActions');
+    const editor = document.getElementById('summaryEditor');
+    const textarea = document.getElementById('summaryTextarea');
+    if (!display) return;
+    display.textContent = text || '';
+    if (actions) actions.style.display = text ? 'block' : 'none';
+    if (editor) editor.style.display = 'none';
+
+    // adopt button should save this generated text
+    const adoptBtn = document.getElementById('summaryAdopt');
+    if (adoptBtn) adoptBtn.onclick = () => {
+        if (text) saveSummaryLocal(vorgang.id, text);
+        renderSummary(vorgang);
+    };
+
+    const editBtn = document.getElementById('summaryEdit');
+    if (editBtn) editBtn.onclick = () => {
+        if (!editor || !textarea) return;
+        textarea.value = text || '';
+        editor.style.display = 'block';
+        if (actions) actions.style.display = 'none';
+    };
+
+    const saveBtn = document.getElementById('summarySave');
+    const cancelBtn = document.getElementById('summaryCancel');
+    if (saveBtn) saveBtn.onclick = () => {
+        if (!textarea) return;
+        const txt = textarea.value.trim();
+        if (!txt) return;
+        saveSummaryLocal(vorgang.id, txt);
+        renderSummary(vorgang);
+    };
+    if (cancelBtn) cancelBtn.onclick = () => {
+        if (editor) editor.style.display = 'none';
+        if (actions) actions.style.display = 'block';
+    };
+};
+
+// Wrapper: call existing interview then generate summary from last observation
+const enhancedStartObservationInterview = async () => {
+    // call original interview flow
+    await startObservationInterview();
+    try {
+        const response = await fetch("../data/vorgaenge/VG-0001.json");
+        if (!response.ok) return;
+        const vorgang = await response.json();
+        const local = loadObservationsLocal(vorgang.id);
+        if (!local || local.length === 0) return;
+        const last = local[local.length - 1];
+        const answers = [last.wasIstPassiert, last.warumWichtig, last.auswirkung, last.wasIstSicher, last.wasVermutestDu];
+        const gen = generateSummaryFromAnswers(answers);
+        showGeneratedSummary(gen, vorgang);
+    } catch (e) {
+        // ignore
+    }
+};
+
+// rebind observation button to enhanced wrapper
+if (obsBtn) obsBtn.onclick = enhancedStartObservationInterview;
+
+// ensure summary rendered after initial load
+window.addEventListener('load', async () => {
+    try {
+        const response = await fetch("../data/vorgaenge/VG-0001.json");
+        if (!response.ok) return;
+        const vorgang = await response.json();
+        renderSummary(vorgang);
+    } catch (e) {
+        // ignore
+    }
+});
+
 window.addEventListener('load', async () => {
     try {
         const response = await fetch("../data/vorgaenge/VG-0001.json");

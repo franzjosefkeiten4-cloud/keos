@@ -50,6 +50,21 @@
               <div style="margin-top:8px;">
                 <button id="startObservationInterview" class="primary">Neue Beobachtung</button>
               </div>
+              <div id="beobachtung-summary" style="margin-top:8px;">
+                <h5>Vorgangszusammenfassung</h5>
+                <div id="summaryDisplay">Keine Zusammenfassung vorhanden.</div>
+                <div id="summaryActions" style="margin-top:8px; display:none;">
+                  <button id="summaryAdopt" class="primary">Übernehmen</button>
+                  <button id="summaryEdit" class="secondary">Bearbeiten</button>
+                </div>
+                <div id="summaryEditor" style="margin-top:8px; display:none;">
+                  <textarea id="summaryTextarea" rows="4" style="width:100%;"></textarea>
+                  <div style="margin-top:8px;">
+                    <button id="summarySave" class="primary">Übernehmen</button>
+                    <button id="summaryCancel" class="secondary">Abbrechen</button>
+                  </div>
+                </div>
+              </div>
             </article>
             <article class="card">
               <div class="card-head"><h4>Ereignisse</h4></div>
