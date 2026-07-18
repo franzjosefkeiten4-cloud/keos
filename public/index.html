@@ -100,10 +100,12 @@
             <article class="card">
               <div class="card-head"><h4>Ereignisse</h4></div>
               <div id="vorgang-ereignisse">Keine Einträge vorhanden.</div>
-              <div class="ereignis-input" style="margin-top:8px;">
-                <input id="vorgang-ereignis-input" type="text" placeholder="Neues Ereignis eingeben" />
+              <div class="ereignis-input" style="margin-top:8px; display:flex; gap:6px; align-items:center;">
+                <input id="vorgang-ereignis-input" type="text" placeholder="Neues Ereignis eingeben" style="flex:1;" />
+                <button id="speechInputButton" class="secondary" type="button" title="Spracheingabe starten">🎙️</button>
                 <button id="addEreignisButton" class="primary">Ereignis hinzufügen</button>
               </div>
+              <div id="speechSupportMessage" style="margin-top:4px;font-size:0.9em;color:#555;"></div>
               <div style="margin-top:8px;">
                 <button id="createDecisionFromEvent" class="secondary">Aus Ereignis Entscheidung erzeugen</button>
               </div>

@@ -168,6 +168,68 @@ async function createDecisionFromEvent() {
 const createDecisionBtn = document.getElementById('createDecisionFromEvent');
 if (createDecisionBtn) createDecisionBtn.onclick = createDecisionFromEvent;
 
+const initSpeechRecognitionInput = () => {
+    const input = document.getElementById('vorgang-ereignis-input');
+    const button = document.getElementById('speechInputButton');
+    const message = document.getElementById('speechSupportMessage');
+    if (!button || !input || !message) return;
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        message.textContent = 'Spracherkennung wird in diesem Browser nicht unterstützt.';
+        button.disabled = true;
+        return;
+    }
+
+    let recognizing = false;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'de-DE';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    button.onclick = () => {
+        if (recognizing) {
+            recognition.stop();
+            return;
+        }
+        try {
+            recognition.start();
+        } catch (e) {
+            message.textContent = 'Spracherkennung konnte nicht gestartet werden.';
+        }
+    };
+
+    recognition.onstart = () => {
+        recognizing = true;
+        button.textContent = '🛑';
+        message.textContent = 'Spracheingabe läuft, sprechen Sie jetzt.';
+    };
+
+    recognition.onend = () => {
+        recognizing = false;
+        button.textContent = '🎙️';
+        if (!input.value) {
+            message.textContent = 'Spracheingabe beendet.';
+        }
+    };
+
+    recognition.onresult = (event) => {
+        const transcript = Array.from(event.results)
+            .map(result => result[0].transcript)
+            .join('');
+        if (transcript) {
+            input.value = transcript;
+            message.textContent = 'Erkannter Text wurde übernommen.';
+        }
+    };
+
+    recognition.onerror = (event) => {
+        message.textContent = `Spracherkennung fehlgeschlagen: ${event.error || 'unbekannter Fehler'}`;
+    };
+};
+
+window.addEventListener('load', initSpeechRecognitionInput);
+
 // Beobachtungen: Interview und Anzeige (keine bestehenden Funktionen ändern)
 const observationsKeyFor = (vorgangId) => `keosVorgangObservations:${vorgangId}`;
 
