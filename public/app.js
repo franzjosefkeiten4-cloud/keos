@@ -30,7 +30,7 @@ function renderVorgang(vorgang) {
             } else if (typeof item === 'string' || typeof item === 'number') {
                 p.textContent = String(item);
             } else if (typeof item === 'object') {
-                p.textContent = item.titel || item.name || JSON.stringify(item);
+                p.textContent = item.text || item.titel || item.name || JSON.stringify(item);
             } else {
                 p.textContent = String(item);
             }
@@ -38,10 +38,72 @@ function renderVorgang(vorgang) {
         });
     };
 
-    renderList('vorgang-ereignisse', vorgang.ereignisse);
+    // localStorage key for this vorgang
+    const localKey = `keosVorgangEvents:${vorgang.id}`;
+
+    const loadLocal = () => {
+        try {
+            const raw = localStorage.getItem(localKey);
+            if (!raw) return [];
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    };
+
+    const saveLocal = (arr) => {
+        try {
+            localStorage.setItem(localKey, JSON.stringify(arr || []));
+        } catch (e) {
+            console.error('Speichern im localStorage fehlgeschlagen', e);
+        }
+    };
+
+    // Merge original Ereignisse with local ones (original first)
+    const combinedEreignisse = (vorgang.ereignisse || []).concat(loadLocal());
+    renderList('vorgang-ereignisse', combinedEreignisse);
     renderList('vorgang-entscheidungen', vorgang.entscheidungen);
     renderList('vorgang-aktionen', vorgang.aktionen);
     renderList('vorgang-erfahrungen', vorgang.erfahrungen);
+
+    // Setup add-event UI (only for Ereignisse)
+    const input = document.getElementById('vorgang-ereignis-input');
+    const button = document.getElementById('addEreignisButton');
+    if (input && button) {
+        const addHandler = () => {
+            const raw = input.value || '';
+            const text = raw.trim();
+            if (!text) return;
+
+            const newEvent = {
+                id: `ER-${Date.now()}`,
+                text: text,
+                erstelltAm: new Date().toISOString(),
+                quelle: 'manuell'
+            };
+
+            const local = loadLocal();
+            local.push(newEvent);
+            saveLocal(local);
+
+            // Re-render Ereignisse: original + local
+            const merged = (vorgang.ereignisse || []).concat(local);
+            renderList('vorgang-ereignisse', merged);
+
+            input.value = '';
+            input.focus();
+        };
+
+        // Replace any existing handlers
+        button.onclick = addHandler;
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addHandler();
+            }
+        };
+    }
 }
 
 async function loadVorgang() {
