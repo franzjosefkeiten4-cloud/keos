@@ -222,6 +222,20 @@ const renderBeobachtungen = (vorgang) => {
         const q5 = document.createElement('p');
         q5.textContent = `5) Was vermutest du? ${obs.wasVermutestDu || ''}`;
         container.appendChild(q5);
+        // show recap/meta if available
+        const metaStore = loadObservationsMetaLocal(vorgang.id);
+        const meta = metaStore && metaStore[obs.id] ? metaStore[obs.id] : null;
+        if (meta) {
+            if (meta.confirmed && meta.confirmedRecap) {
+                const conf = document.createElement('p');
+                conf.textContent = `Bestätigte Rekapitulation: ${meta.confirmedRecap}`;
+                container.appendChild(conf);
+            } else if (meta.recap) {
+                const pre = document.createElement('p');
+                pre.textContent = `Vorläufige Rekapitulation: ${meta.recap}`;
+                container.appendChild(pre);
+            }
+        }
         el.appendChild(container);
     });
 };
@@ -427,6 +441,117 @@ const enhancedStartObservationInterview = async () => {
 
 // rebind observation button to enhanced wrapper
 if (obsBtn) obsBtn.onclick = enhancedStartObservationInterview;
+
+// --- Recap confirmation / correction loop ---
+const observationsMetaKeyFor = (vorgangId) => `keosVorgangObservationsMeta:${vorgangId}`;
+const loadObservationsMetaLocal = (vorgangId) => {
+    try {
+        const raw = localStorage.getItem(observationsMetaKeyFor(vorgangId));
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) {
+        return {};
+    }
+};
+const saveObservationsMetaLocal = (vorgangId, obj) => {
+    try {
+        localStorage.setItem(observationsMetaKeyFor(vorgangId), JSON.stringify(obj || {}));
+    } catch (e) {
+        console.error('Speichern der Beobachtungs-Meta fehlgeschlagen', e);
+    }
+};
+
+const showRecapUI = (vorgang, recapText, obsId) => {
+    const wrapper = document.getElementById('recapConfirmation');
+    const recapEl = document.getElementById('recapText');
+    const question = document.getElementById('recapQuestion');
+    const yesBtn = document.getElementById('recapYes');
+    const noBtn = document.getElementById('recapNo');
+    const correctionDiv = document.getElementById('recapCorrection');
+    const correctionInput = document.getElementById('recapCorrectionInput');
+    const sendCorr = document.getElementById('recapSendCorrection');
+    const cancelCorr = document.getElementById('recapCancelCorrection');
+    if (!wrapper || !recapEl) return;
+    wrapper.style.display = 'block';
+    recapEl.textContent = recapText || '';
+    question.textContent = 'Habe ich dich richtig verstanden, dass ...?';
+    if (correctionDiv) correctionDiv.style.display = 'none';
+
+    const meta = loadObservationsMetaLocal(vorgang.id);
+
+    const cleanup = () => {
+        wrapper.style.display = 'none';
+        if (correctionDiv) correctionDiv.style.display = 'none';
+        if (correctionInput) correctionInput.value = '';
+        // remove handlers
+        if (yesBtn) yesBtn.onclick = null;
+        if (noBtn) noBtn.onclick = null;
+        if (sendCorr) sendCorr.onclick = null;
+        if (cancelCorr) cancelCorr.onclick = null;
+    };
+
+    if (yesBtn) yesBtn.onclick = () => {
+        // mark confirmed recap for this obs (use current displayed recap)
+        const currentRecap = recapEl.textContent || '';
+        meta[obsId] = meta[obsId] || {};
+        meta[obsId].recap = currentRecap;
+        meta[obsId].confirmedRecap = currentRecap;
+        meta[obsId].confirmed = true;
+        saveObservationsMetaLocal(vorgang.id, meta);
+        cleanup();
+        // re-render Beobachtungen to show confirmation badge
+        renderBeobachtungen(vorgang);
+    };
+
+    if (noBtn) noBtn.onclick = () => {
+        if (correctionDiv) correctionDiv.style.display = 'block';
+    };
+
+    if (sendCorr) sendCorr.onclick = () => {
+        const corr = correctionInput ? correctionInput.value.trim() : '';
+        if (!corr) return;
+        // create new recap from correction (do not overwrite original answers)
+        const newRecap = corr;
+        meta[obsId] = meta[obsId] || {};
+        meta[obsId].recap = newRecap;
+        meta[obsId].confirmed = false;
+        saveObservationsMetaLocal(vorgang.id, meta);
+        // replace recap text and ask again
+        recapEl.textContent = newRecap;
+        if (correctionDiv) correctionDiv.style.display = 'none';
+        question.textContent = 'Habe ich dich jetzt richtig verstanden?';
+        // next yes will confirm
+    };
+
+    if (cancelCorr) cancelCorr.onclick = () => {
+        if (correctionDiv) correctionDiv.style.display = 'none';
+    };
+};
+
+// New wrapper with confirmation loop
+const enhancedStartObservationInterviewWithConfirmation = async () => {
+    await startObservationInterview();
+    try {
+        const response = await fetch("../data/vorgaenge/VG-0001.json");
+        if (!response.ok) return;
+        const vorgang = await response.json();
+        const local = loadObservationsLocal(vorgang.id);
+        if (!local || local.length === 0) return;
+        const last = local[local.length - 1];
+        const answers = [last.wasIstPassiert, last.warumWichtig, last.auswirkung, last.wasIstSicher, last.wasVermutestDu];
+        const gen = generateSummaryFromAnswers(answers);
+        // show recap UI and let user confirm/correct
+        showRecapUI(vorgang, gen, last.id);
+        // also show generated summary as before
+        showGeneratedSummary(gen, vorgang);
+    } catch (e) {
+        // ignore
+    }
+};
+
+// rebind observation button to new enhanced wrapper with confirmation
+if (obsBtn) obsBtn.onclick = enhancedStartObservationInterviewWithConfirmation;
 
 // ensure summary rendered after initial load
 window.addEventListener('load', async () => {
