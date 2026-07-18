@@ -472,8 +472,83 @@ const startObservationInterview = () => {
                 'Was vermutest du?'
             ];
 
-            // modal elements
+            const obsBtn = document.getElementById('startObservationInterview');
             const modal = document.getElementById('observationModal');
+
+            // --- Freies Erzählen (Sprint 017) ---
+            const startFreeMode = () => {
+                return new Promise(async (resolve) => {
+                    try {
+                        const response = await fetch("../data/vorgaenge/VG-0001.json");
+                        if (!response.ok) return resolve(null);
+                        const vorgang = await response.json();
+
+                        const modal = document.getElementById('freeModal');
+                        const input = document.getElementById('freeInput');
+                        const mic = document.getElementById('freeMic');
+                        const stopBtn = document.getElementById('freeStopRecording');
+                        const msg = document.getElementById('freeSpeechMessage');
+                        const done = document.getElementById('freeDone');
+                        const cancel = document.getElementById('freeCancel');
+                        if (!modal || !input || !mic || !done || !cancel) return resolve(null);
+
+                        let recognition = null;
+
+                        const open = () => { modal.style.display = 'flex'; input.focus(); };
+                        const close = () => { modal.style.display = 'none'; };
+
+                        const stopRecognition = () => {
+                            try { if (recognition && typeof recognition.stop === 'function') recognition.stop(); } catch (e) {}
+                            recognition = null;
+                        };
+
+                        const startRec = () => {
+                            stopRecognition();
+                            recognition = createSpeechRecognition(mic, input, msg, stopBtn);
+                        };
+
+                        open();
+
+                        cancel.onclick = () => { stopRecognition(); close(); resolve(null); };
+
+                        done.onclick = async () => {
+                            stopRecognition();
+                            const text = (input.value || '').trim();
+                            if (!text) { close(); return resolve(null); }
+                            const obs = {
+                                id: `BE-${Date.now()}`,
+                                wasIstPassiert: text,
+                                warumWichtig: '',
+                                auswirkung: '',
+                                wasIstSicher: '',
+                                wasVermutestDu: '',
+                                erstelltAm: new Date().toISOString(),
+                                quelle: 'frei'
+                            };
+                            const local = loadObservationsLocal(vorgang.id);
+                            local.push(obs);
+                            saveObservationsLocal(vorgang.id, local);
+                            try { appendSystemLog('Beobachtung erstellt (frei)', vorgang.id, `Beobachtung ${obs.id} erstellt (frei)`); } catch (e) {}
+                            close(); renderBeobachtungen(vorgang);
+                            // generate recap and show confirmation like guided flow
+                            const gen = generateSummaryFromAnswers([obs.wasIstPassiert, '', '', '', '']);
+                            showGeneratedSummary(gen, vorgang);
+                            showRecapUI(vorgang, gen, obs.id);
+                            return resolve(obs);
+                        };
+
+                        // initialize recognition for the free input (user can start via mic button)
+                        startRec();
+
+                    } catch (e) {
+                        console.error('Freier Modus fehlgeschlagen', e);
+                        return resolve(null);
+                    }
+                });
+            };
+
+            const freeBtn = document.getElementById('startFreeInterview');
+            if (freeBtn) freeBtn.onclick = startFreeMode;
             const questionEl = document.getElementById('modalQuestion');
             const progressEl = document.getElementById('modalProgress');
             const input = document.getElementById('modalInput');
