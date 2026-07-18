@@ -169,17 +169,14 @@ async function createDecisionFromEvent() {
 const createDecisionBtn = document.getElementById('createDecisionFromEvent');
 if (createDecisionBtn) createDecisionBtn.onclick = createDecisionFromEvent;
 
-const initSpeechRecognitionInput = () => {
-    const input = document.getElementById('vorgang-ereignis-input');
-    const button = document.getElementById('speechInputButton');
-    const message = document.getElementById('speechSupportMessage');
-    if (!button || !input || !message) return;
-
+// reusable speech recognition factory: attaches handlers to a mic button, an input field and a message element
+const createSpeechRecognition = (button, input, message) => {
+    if (!button || !input) return null;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-        message.textContent = 'Spracherkennung wird in diesem Browser nicht unterstützt.';
+        if (message) message.textContent = 'Spracherkennung wird in diesem Browser nicht unterstützt.';
         button.disabled = true;
-        return;
+        return null;
     }
 
     let recognizing = false;
@@ -196,20 +193,20 @@ const initSpeechRecognitionInput = () => {
         try {
             recognition.start();
         } catch (e) {
-            message.textContent = 'Spracherkennung konnte nicht gestartet werden.';
+            if (message) message.textContent = 'Spracherkennung konnte nicht gestartet werden.';
         }
     };
 
     recognition.onstart = () => {
         recognizing = true;
         button.textContent = '🛑';
-        message.textContent = 'Spracheingabe läuft, sprechen Sie jetzt.';
+        if (message) message.textContent = 'Spracheingabe läuft, sprechen Sie jetzt.';
     };
 
     recognition.onend = () => {
         recognizing = false;
         button.textContent = '🎙️';
-        if (!input.value) {
+        if (message && !input.value) {
             message.textContent = 'Spracheingabe beendet.';
         }
     };
@@ -219,14 +216,25 @@ const initSpeechRecognitionInput = () => {
             .map(result => result[0].transcript)
             .join('');
         if (transcript) {
-            input.value = transcript;
-            message.textContent = 'Erkannter Text wurde übernommen.';
+            // append recognized text to existing input
+            input.value = (input.value ? input.value + ' ' : '') + transcript;
+            if (message) message.textContent = 'Erkannter Text wurde übernommen.';
         }
     };
 
     recognition.onerror = (event) => {
-        message.textContent = `Spracherkennung fehlgeschlagen: ${event.error || 'unbekannter Fehler'}`;
+        if (message) message.textContent = `Spracherkennung fehlgeschlagen: ${event.error || 'unbekannter Fehler'}`;
     };
+
+    return recognition;
+};
+
+const initSpeechRecognitionInput = () => {
+    const input = document.getElementById('vorgang-ereignis-input');
+    const button = document.getElementById('speechInputButton');
+    const message = document.getElementById('speechSupportMessage');
+    if (!button || !input || !message) return;
+    createSpeechRecognition(button, input, message);
 };
 
 window.addEventListener('load', initSpeechRecognitionInput);
@@ -432,11 +440,12 @@ const renderBeobachtungen = (vorgang) => {
     });
 };
 
-const startObservationInterview = async () => {
-    try {
-        const response = await fetch("../data/vorgaenge/VG-0001.json");
-        if (!response.ok) return;
-        const vorgang = await response.json();
+const startObservationInterview = () => {
+    return new Promise(async (resolve) => {
+        try {
+            const response = await fetch("../data/vorgaenge/VG-0001.json");
+            if (!response.ok) return resolve(null);
+            const vorgang = await response.json();
 
         const questions = [
             'Was ist passiert?',
@@ -446,33 +455,105 @@ const startObservationInterview = async () => {
             'Was vermutest du?'
         ];
 
-        const answers = [];
-        for (let i = 0; i < questions.length; i++) {
-            const ans = window.prompt(questions[i], '');
-            if (ans === null) return; // abort if cancelled
-            answers.push(ans.trim());
-        }
+        openModal();
 
-        const anyNonEmpty = answers.some(a => a && a.length > 0);
-        if (!anyNonEmpty) return;
-
-        const obs = {
-            id: `BE-${Date.now()}`,
-            wasIstPassiert: answers[0],
-            warumWichtig: answers[1],
-            auswirkung: answers[2],
-            wasIstSicher: answers[3],
-            wasVermutestDu: answers[4],
-            erstelltAm: new Date().toISOString(),
-            quelle: 'manuell'
+        cancelBtn.onclick = () => {
+            // abort interview, do not save
+            abort();
+            resolve(null);
         };
 
-        const local = loadObservationsLocal(vorgang.id);
-        local.push(obs);
-        saveObservationsLocal(vorgang.id, local);
-        try { appendSystemLog('Beobachtung erstellt', vorgang.id, `Beobachtung ${obs.id} erstellt`); } catch (e) {}
+        nextBtn.onclick = () => {
+        const cancelBtn = document.getElementById('modalCancel');
+        if (!modal || !questionEl || !progressEl || !input || !mic || !nextBtn || !cancelBtn) {
+            console.error('Interview Modal Elemente fehlen');
+            return;
+        }
 
-        renderBeobachtungen(vorgang);
+        let current = 0;
+        const answers = Array(questions.length).fill('');
+        let recognition = null;
+                    cleanupHandlers(); closeModal(); return resolve(null);
+        const openModal = () => {
+            modal.style.display = 'flex';
+            updateView();
+        };
+        const closeModal = () => {
+            modal.style.display = 'none';
+        };
+
+        const stopRecognition = () => {
+            try {
+                if (recognition && typeof recognition.stop === 'function') recognition.stop();
+            } catch (e) {}
+            recognition = null;
+        };
+
+                cleanupHandlers(); closeModal(); renderBeobachtungen(vorgang);
+                return resolve(obs);
+            questionEl.textContent = questions[current];
+            progressEl.textContent = `Frage ${current + 1} von ${questions.length}`;
+            input.value = answers[current] || '';
+            if (speechMsg) speechMsg.textContent = '';
+            // init speech for this modal input
+
+        } catch (e) {
+            console.error('Beobachtungs-Interview fehlgeschlagen', e);
+            return resolve(null);
+        }
+    });
+};
+            stopRecognition();
+            nextBtn.onclick = null;
+            cancelBtn.onclick = null;
+        };
+
+        const abort = () => {
+            cleanupHandlers();
+            closeModal();
+        };
+
+        openModal();
+
+        cancelBtn.onclick = () => {
+            // abort interview, do not save
+            abort();
+        };
+
+        nextBtn.onclick = () => {
+            // stop any running recognition before proceeding
+            try { if (recognition && typeof recognition.stop === 'function') recognition.stop(); } catch (e) {}
+            // store current answer
+            answers[current] = (input.value || '').trim();
+            // if last question, finalize
+            if (current === questions.length - 1) {
+                const anyNonEmpty = answers.some(a => a && a.length > 0);
+                if (!anyNonEmpty) {
+                    // nothing to save
+                    cleanupHandlers(); closeModal(); return;
+                }
+                const obs = {
+                    id: `BE-${Date.now()}`,
+                    wasIstPassiert: answers[0],
+                    warumWichtig: answers[1],
+                    auswirkung: answers[2],
+                    wasIstSicher: answers[3],
+                    wasVermutestDu: answers[4],
+                    erstelltAm: new Date().toISOString(),
+                    quelle: 'manuell'
+                };
+                const local = loadObservationsLocal(vorgang.id);
+                local.push(obs);
+                saveObservationsLocal(vorgang.id, local);
+                try { appendSystemLog('Beobachtung erstellt', vorgang.id, `Beobachtung ${obs.id} erstellt`); } catch (e) {}
+                cleanupHandlers(); closeModal(); renderBeobachtungen(vorgang);
+                return;
+            }
+            // move to next
+            current += 1;
+            updateView();
+        };
+
     } catch (e) {
         console.error('Beobachtungs-Interview fehlgeschlagen', e);
     }
