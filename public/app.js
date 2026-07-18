@@ -124,3 +124,46 @@ async function loadVorgang() {
 }
 
 loadVorgang();
+
+async function createDecisionFromEvent() {
+    try {
+        const response = await fetch("../data/vorgaenge/VG-0001.json");
+        if (!response.ok) return;
+
+        const vorgang = await response.json();
+
+        // load local events (if any)
+        const localKey = `keosVorgangEvents:${vorgang.id}`;
+        let local = [];
+        try {
+            const raw = localStorage.getItem(localKey);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) local = parsed;
+            }
+        } catch (e) {
+            local = [];
+        }
+
+        const combined = (vorgang.ereignisse || []).concat(local);
+        if (!combined || combined.length === 0) return; // nothing to do
+
+        if (!Array.isArray(vorgang.entscheidungen)) vorgang.entscheidungen = [];
+
+        const neueEntscheidung = {
+            titel: "Liegesituation prüfen",
+            quelle: "Ereignis",
+            status: "offen"
+        };
+
+        vorgang.entscheidungen.push(neueEntscheidung);
+
+        // re-render in-memory vorgang
+        renderVorgang(vorgang);
+    } catch (e) {
+        console.error('Fehler beim Erzeugen der Entscheidung:', e);
+    }
+}
+
+const createDecisionBtn = document.getElementById('createDecisionFromEvent');
+if (createDecisionBtn) createDecisionBtn.onclick = createDecisionFromEvent;
