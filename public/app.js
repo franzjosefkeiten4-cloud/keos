@@ -170,60 +170,94 @@ const createDecisionBtn = document.getElementById('createDecisionFromEvent');
 if (createDecisionBtn) createDecisionBtn.onclick = createDecisionFromEvent;
 
 // reusable speech recognition factory: attaches handlers to a mic button, an input field and a message element
-const createSpeechRecognition = (button, input, message) => {
+const createSpeechRecognition = (button, input, message, stopButton) => {
     if (!button || !input) return null;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
         if (message) message.textContent = 'Spracherkennung wird in diesem Browser nicht unterstützt.';
         button.disabled = true;
+        if (stopButton) stopButton.style.display = 'none';
         return null;
     }
 
     let recognizing = false;
+    let stopRequested = false;
+    let baseText = '';
     const recognition = new SpeechRecognition();
     recognition.lang = 'de-DE';
-    recognition.interimResults = false;
+    recognition.interimResults = true;
+    recognition.continuous = true;
     recognition.maxAlternatives = 1;
+
+    const start = () => {
+        stopRequested = false;
+        baseText = input.value || '';
+        try { recognition.start(); } catch (e) { if (message) message.textContent = 'Spracherkennung konnte nicht gestartet werden.'; }
+    };
+
+    const stop = () => {
+        stopRequested = true;
+        try { recognition.stop(); } catch (e) {}
+    };
 
     button.onclick = () => {
         if (recognizing) {
-            recognition.stop();
+            stop();
             return;
         }
-        try {
-            recognition.start();
-        } catch (e) {
-            if (message) message.textContent = 'Spracherkennung konnte nicht gestartet werden.';
-        }
+        start();
     };
+
+    if (stopButton) {
+        stopButton.style.display = 'none';
+        stopButton.onclick = () => {
+            stop();
+        };
+    }
 
     recognition.onstart = () => {
         recognizing = true;
-        button.textContent = '🛑';
-        if (message) message.textContent = 'Spracheingabe läuft, sprechen Sie jetzt.';
+        if (button) button.textContent = '🛑';
+        if (stopButton) stopButton.style.display = 'inline-block';
+        if (message) message.textContent = 'Aufnahme läuft...';
+    };
+
+    recognition.onresult = (event) => {
+        // build final and interim transcripts
+        let finalText = '';
+        let interimText = '';
+        for (let i = 0; i < event.results.length; i++) {
+            const r = event.results[i];
+            const t = r[0] && r[0].transcript ? r[0].transcript : '';
+            if (r.isFinal) finalText += (finalText ? ' ' : '') + t;
+            else interimText += (interimText ? ' ' : '') + t;
+        }
+        const combined = (baseText ? baseText + ' ' : '') + (finalText ? finalText + ' ' : '') + interimText;
+        input.value = combined.trim();
+        if (message) message.textContent = interimText ? 'Ich höre weiter zu …' : 'Erkannter Text wurde übernommen.';
     };
 
     recognition.onend = () => {
         recognizing = false;
-        button.textContent = '🎙️';
-        if (message && !input.value) {
-            message.textContent = 'Spracheingabe beendet.';
+        if (button) button.textContent = '🎙️';
+        if (stopButton) stopButton.style.display = 'none';
+        if (stopRequested) {
+            if (message) message.textContent = 'Aufnahme beendet.';
+            return;
         }
-    };
-
-    recognition.onresult = (event) => {
-        const transcript = Array.from(event.results)
-            .map(result => result[0].transcript)
-            .join('');
-        if (transcript) {
-            // append recognized text to existing input
-            input.value = (input.value ? input.value + ' ' : '') + transcript;
-            if (message) message.textContent = 'Erkannter Text wurde übernommen.';
-        }
+        // short pause: inform user and restart listening automatically
+        if (message) message.textContent = 'Ich höre weiter zu …';
+        // restart after brief delay to tolerate short pauses
+        setTimeout(() => {
+            try { recognition.start(); } catch (e) {}
+        }, 300);
     };
 
     recognition.onerror = (event) => {
         if (message) message.textContent = `Spracherkennung fehlgeschlagen: ${event.error || 'unbekannter Fehler'}`;
+        recognizing = false;
+        if (button) button.textContent = '🎙️';
+        if (stopButton) stopButton.style.display = 'none';
     };
 
     return recognition;
@@ -233,8 +267,9 @@ const initSpeechRecognitionInput = () => {
     const input = document.getElementById('vorgang-ereignis-input');
     const button = document.getElementById('speechInputButton');
     const message = document.getElementById('speechSupportMessage');
+    const stopBtn = document.getElementById('speechStopButton');
     if (!button || !input || !message) return;
-    createSpeechRecognition(button, input, message);
+    createSpeechRecognition(button, input, message, stopBtn);
 };
 
 window.addEventListener('load', initSpeechRecognitionInput);
@@ -346,27 +381,9 @@ window.addEventListener('load', () => {
         };
     }
     if (speechBtn && workplaceInput) {
-        // reuse speech init if SpeechRecognition available
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            speechBtn.disabled = true;
-        } else {
-            let recognizing = false;
-            const recognition = new SpeechRecognition();
-            recognition.lang = 'de-DE';
-            recognition.interimResults = false;
-            recognition.maxAlternatives = 1;
-            speechBtn.onclick = () => {
-                if (recognizing) { recognition.stop(); return; }
-                try { recognition.start(); } catch (e) { /* ignore */ }
-            };
-            recognition.onstart = () => { recognizing = true; speechBtn.textContent = '🛑'; };
-            recognition.onend = () => { recognizing = false; speechBtn.textContent = '🎙️'; };
-            recognition.onresult = (ev) => {
-                const transcript = Array.from(ev.results).map(r => r[0].transcript).join('');
-                if (transcript) workplaceInput.value = transcript;
-            };
-        }
+        const workplaceMsg = document.getElementById('workplaceSpeechMessage');
+        const workplaceStop = document.getElementById('workplaceStopRecording');
+        createSpeechRecognition(speechBtn, workplaceInput, workplaceMsg, workplaceStop);
     }
 });
 const observationsKeyFor = (vorgangId) => `keosVorgangObservations:${vorgangId}`;
@@ -461,6 +478,7 @@ const startObservationInterview = () => {
             const progressEl = document.getElementById('modalProgress');
             const input = document.getElementById('modalInput');
             const mic = document.getElementById('modalMic');
+            const modalStop = document.getElementById('modalStopRecording');
             const speechMsg = document.getElementById('modalSpeechMessage');
             const reactionEl = document.getElementById('modalReaction');
             const nextBtn = document.getElementById('modalNext');
@@ -497,7 +515,7 @@ const startObservationInterview = () => {
                 if (reactionEl) reactionEl.textContent = '';
                 // init speech for this modal input
                 stopRecognition();
-                recognition = createSpeechRecognition(mic, input, speechMsg);
+                recognition = createSpeechRecognition(mic, input, speechMsg, modalStop);
                 nextBtn.disabled = false;
             };
 

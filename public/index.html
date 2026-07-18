@@ -35,8 +35,10 @@
           <textarea id="workplaceInput" rows="8" style="width:100%;border:1px solid rgba(71,72,26,.12);border-radius:12px;padding:12px;margin-top:8px;"></textarea>
           <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
             <button id="workplaceSpeechButton" class="secondary" type="button">🎙️</button>
+            <button id="workplaceStopRecording" class="secondary" type="button" style="display:none;">Aufnahme beenden</button>
             <button id="startConversation" class="primary">Gespräch beginnen</button>
           </div>
+          <div id="workplaceSpeechMessage" style="margin-top:6px;font-size:0.9rem;color:#555;"></div>
         </div>
       </article>
       <article class="card">
@@ -114,6 +116,7 @@
               <div class="ereignis-input" style="margin-top:8px; display:flex; gap:6px; align-items:center;">
                 <input id="vorgang-ereignis-input" type="text" placeholder="Neues Ereignis eingeben" style="flex:1;" />
                 <button id="speechInputButton" class="secondary" type="button" title="Spracheingabe starten">🎙️</button>
+                <button id="speechStopButton" class="secondary" type="button" style="display:none;">Aufnahme beenden</button>
                 <button id="addEreignisButton" class="primary">Ereignis hinzufügen</button>
               </div>
               <div id="speechSupportMessage" style="margin-top:4px;font-size:0.9em;color:#555;"></div>
@@ -189,6 +192,7 @@
         <textarea id="modalInput" rows="4" style="flex:1;border:1px solid rgba(71,72,26,.12);border-radius:8px;padding:10px;"></textarea>
         <div style="display:flex;flex-direction:column;gap:8px;">
           <button id="modalMic" class="secondary" type="button">🎙️</button>
+          <button id="modalStopRecording" class="secondary" type="button" style="display:none;">Aufnahme beenden</button>
         </div>
       </div>
       <div id="modalSpeechMessage" style="margin-top:8px;font-size:0.9rem;color:#555;"></div>
