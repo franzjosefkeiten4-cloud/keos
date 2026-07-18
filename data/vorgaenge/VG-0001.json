@@ -1,0 +1,13 @@
+{
+  "id": "VG-0001",
+  "titel": "Reklamation Müller",
+  "status": "offen",
+  "prioritaet": 100,
+  "kontext": "Nachbetreuung",
+  "verantwortlich": "Franz-Josef",
+  "quelle": [],
+  "ereignisse": [],
+  "entscheidungen": [],
+  "aktionen": [],
+  "erfahrungen": []
+}
