@@ -29,6 +29,17 @@
     </section>
     <section class="grid">
       <article class="card">
+        <div class="card-head"><h3>Arbeitsbereich</h3></div>
+        <div>
+          <p class="eyebrow">Erzähl mir einfach, was heute passiert ist.</p>
+          <textarea id="workplaceInput" rows="8" style="width:100%;border:1px solid rgba(71,72,26,.12);border-radius:12px;padding:12px;margin-top:8px;"></textarea>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+            <button id="workplaceSpeechButton" class="secondary" type="button">🎙️</button>
+            <button id="startConversation" class="primary">Gespräch beginnen</button>
+          </div>
+        </div>
+      </article>
+      <article class="card">
         <div class="card-head"><h3>Heute zuerst</h3><span id="taskCount" class="badge">0 Aufgaben</span></div>
         <div id="taskList" class="task-list"></div>
       </article>

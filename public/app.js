@@ -279,6 +279,48 @@ const initPilotFeedback = () => {
 window.addEventListener('load', initPilotFeedback);
 
 // Beobachtungen: Interview und Anzeige (keine bestehenden Funktionen ändern)
+
+// Bind the Gespräch beginnen button to the existing observation workflow (placeholder)
+window.addEventListener('load', () => {
+    const convBtn = document.getElementById('startConversation');
+    const speechBtn = document.getElementById('workplaceSpeechButton');
+    const workplaceInput = document.getElementById('workplaceInput');
+    if (convBtn) {
+        // Call the enhanced interview + confirmation flow as a starting point
+        convBtn.onclick = () => {
+            if (typeof enhancedStartObservationInterviewWithConfirmation === 'function') {
+                enhancedStartObservationInterviewWithConfirmation();
+            } else if (typeof enhancedStartObservationInterview === 'function') {
+                enhancedStartObservationInterview();
+            } else {
+                console.log('Gespräch beginnen (Platzhalter)');
+            }
+        };
+    }
+    if (speechBtn && workplaceInput) {
+        // reuse speech init if SpeechRecognition available
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            speechBtn.disabled = true;
+        } else {
+            let recognizing = false;
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'de-DE';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+            speechBtn.onclick = () => {
+                if (recognizing) { recognition.stop(); return; }
+                try { recognition.start(); } catch (e) { /* ignore */ }
+            };
+            recognition.onstart = () => { recognizing = true; speechBtn.textContent = '🛑'; };
+            recognition.onend = () => { recognizing = false; speechBtn.textContent = '🎙️'; };
+            recognition.onresult = (ev) => {
+                const transcript = Array.from(ev.results).map(r => r[0].transcript).join('');
+                if (transcript) workplaceInput.value = transcript;
+            };
+        }
+    }
+});
 const observationsKeyFor = (vorgangId) => `keosVorgangObservations:${vorgangId}`;
 
 const loadObservationsLocal = (vorgangId) => {
