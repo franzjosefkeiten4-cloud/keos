@@ -167,3 +167,120 @@ async function createDecisionFromEvent() {
 
 const createDecisionBtn = document.getElementById('createDecisionFromEvent');
 if (createDecisionBtn) createDecisionBtn.onclick = createDecisionFromEvent;
+
+// Beobachtungen: Interview und Anzeige (keine bestehenden Funktionen ändern)
+const observationsKeyFor = (vorgangId) => `keosVorgangObservations:${vorgangId}`;
+
+const loadObservationsLocal = (vorgangId) => {
+    try {
+        const raw = localStorage.getItem(observationsKeyFor(vorgangId));
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        return [];
+    }
+};
+
+const saveObservationsLocal = (vorgangId, arr) => {
+    try {
+        localStorage.setItem(observationsKeyFor(vorgangId), JSON.stringify(arr || []));
+    } catch (e) {
+        console.error('Speichern der Beobachtungen fehlgeschlagen', e);
+    }
+};
+
+const renderBeobachtungen = (vorgang) => {
+    const el = document.getElementById('vorgang-beobachtungen');
+    if (!el) return;
+    const originals = Array.isArray(vorgang.beobachtungen) ? vorgang.beobachtungen : [];
+    const local = loadObservationsLocal(vorgang.id);
+    const merged = originals.concat(local);
+    el.innerHTML = '';
+    if (!Array.isArray(merged) || merged.length === 0) {
+        el.textContent = 'Keine Einträge vorhanden.';
+        return;
+    }
+    merged.forEach(obs => {
+        const container = document.createElement('div');
+        container.className = 'beobachtung-item';
+        const h = document.createElement('p');
+        h.textContent = `ID: ${obs.id}`;
+        container.appendChild(h);
+        const q1 = document.createElement('p');
+        q1.textContent = `1) Was ist passiert? ${obs.wasIstPassiert || ''}`;
+        container.appendChild(q1);
+        const q2 = document.createElement('p');
+        q2.textContent = `2) Warum ist das wichtig? ${obs.warumWichtig || ''}`;
+        container.appendChild(q2);
+        const q3 = document.createElement('p');
+        q3.textContent = `3) Welche Auswirkung hat das? ${obs.auswirkung || ''}`;
+        container.appendChild(q3);
+        const q4 = document.createElement('p');
+        q4.textContent = `4) Was ist sicher? ${obs.wasIstSicher || ''}`;
+        container.appendChild(q4);
+        const q5 = document.createElement('p');
+        q5.textContent = `5) Was vermutest du? ${obs.wasVermutestDu || ''}`;
+        container.appendChild(q5);
+        el.appendChild(container);
+    });
+};
+
+const startObservationInterview = async () => {
+    try {
+        const response = await fetch("../data/vorgaenge/VG-0001.json");
+        if (!response.ok) return;
+        const vorgang = await response.json();
+
+        const questions = [
+            'Was ist passiert?',
+            'Warum ist das wichtig?',
+            'Welche Auswirkung hat das?',
+            'Was ist sicher?',
+            'Was vermutest du?'
+        ];
+
+        const answers = [];
+        for (let i = 0; i < questions.length; i++) {
+            const ans = window.prompt(questions[i], '');
+            if (ans === null) return; // abort if cancelled
+            answers.push(ans.trim());
+        }
+
+        const anyNonEmpty = answers.some(a => a && a.length > 0);
+        if (!anyNonEmpty) return;
+
+        const obs = {
+            id: `BE-${Date.now()}`,
+            wasIstPassiert: answers[0],
+            warumWichtig: answers[1],
+            auswirkung: answers[2],
+            wasIstSicher: answers[3],
+            wasVermutestDu: answers[4],
+            erstelltAm: new Date().toISOString(),
+            quelle: 'manuell'
+        };
+
+        const local = loadObservationsLocal(vorgang.id);
+        local.push(obs);
+        saveObservationsLocal(vorgang.id, local);
+
+        renderBeobachtungen(vorgang);
+    } catch (e) {
+        console.error('Beobachtungs-Interview fehlgeschlagen', e);
+    }
+};
+
+const obsBtn = document.getElementById('startObservationInterview');
+if (obsBtn) obsBtn.onclick = startObservationInterview;
+
+window.addEventListener('load', async () => {
+    try {
+        const response = await fetch("../data/vorgaenge/VG-0001.json");
+        if (!response.ok) return;
+        const vorgang = await response.json();
+        renderBeobachtungen(vorgang);
+    } catch (e) {
+        // ignore
+    }
+});
