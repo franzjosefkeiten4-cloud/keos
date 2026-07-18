@@ -160,6 +160,7 @@ async function createDecisionFromEvent() {
 
         // re-render in-memory vorgang
         renderVorgang(vorgang);
+        try { appendSystemLog('Entscheidung erzeugt', vorgang.id, 'Entscheidung "Liegesituation prüfen" erzeugt'); } catch (e) {}
     } catch (e) {
         console.error('Fehler beim Erzeugen der Entscheidung:', e);
     }
@@ -279,6 +280,45 @@ const initPilotFeedback = () => {
 window.addEventListener('load', initPilotFeedback);
 
 // Beobachtungen: Interview und Anzeige (keine bestehenden Funktionen ändern)
+
+// --- Internes System-Log (lokal) ---
+const systemLogKey = 'keosSystemLog';
+const appendSystemLog = (eventType, vorgangId, description) => {
+    try {
+        const entry = {
+            timestamp: new Date().toISOString(),
+            eventType: String(eventType),
+            vorgangId: String(vorgangId || ''),
+            description: String(description || '')
+        };
+        const raw = localStorage.getItem(systemLogKey);
+        let arr = [];
+        if (raw) {
+            try {
+                const parsed = JSON.parse(raw);
+                arr = Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+                arr = [];
+            }
+        }
+        arr.push(entry);
+        localStorage.setItem(systemLogKey, JSON.stringify(arr));
+    } catch (e) {
+        // fallback: write minimal console log
+        console.warn('SystemLog konnte nicht geschrieben werden', e);
+    }
+};
+
+const loadSystemLog = () => {
+    try {
+        const raw = localStorage.getItem(systemLogKey);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        return [];
+    }
+};
 
 // Bind the Gespräch beginnen button to the existing observation workflow (placeholder)
 window.addEventListener('load', () => {
@@ -430,6 +470,7 @@ const startObservationInterview = async () => {
         const local = loadObservationsLocal(vorgang.id);
         local.push(obs);
         saveObservationsLocal(vorgang.id, local);
+        try { appendSystemLog('Beobachtung erstellt', vorgang.id, `Beobachtung ${obs.id} erstellt`); } catch (e) {}
 
         renderBeobachtungen(vorgang);
     } catch (e) {
@@ -488,6 +529,7 @@ const renderSummary = (vorgang) => {
             const current = display.textContent || '';
             if (current && current !== 'Keine Zusammenfassung vorhanden.') {
                 saveSummaryLocal(vorgang.id, current);
+                try { appendSystemLog('Zusammenfassung bestätigt', vorgang.id, 'Zusammenfassung übernommen'); } catch (e) {}
                 renderSummary(vorgang);
             }
         };
@@ -508,6 +550,7 @@ const renderSummary = (vorgang) => {
             const txt = textarea.value.trim();
             if (!txt) return;
             saveSummaryLocal(vorgang.id, txt);
+            try { appendSystemLog('Zusammenfassung bestätigt', vorgang.id, 'Zusammenfassung übernommen'); } catch (e) {}
             renderSummary(vorgang);
         };
     }
@@ -651,6 +694,7 @@ const showRecapUI = (vorgang, recapText, obsId) => {
         meta[obsId].confirmedRecap = currentRecap;
         meta[obsId].confirmed = true;
         saveObservationsMetaLocal(vorgang.id, meta);
+        try { appendSystemLog('Rekapitulation bestätigt', vorgang.id, `Rekapitulation für ${obsId} bestätigt`); } catch (e) {}
         cleanup();
         // re-render Beobachtungen to show confirmation badge
         renderBeobachtungen(vorgang);
@@ -674,6 +718,7 @@ const showRecapUI = (vorgang, recapText, obsId) => {
         if (correctionDiv) correctionDiv.style.display = 'none';
         question.textContent = 'Habe ich dich jetzt richtig verstanden?';
         // next yes will confirm
+        try { appendSystemLog('Beobachtung geändert', vorgang.id, `Rekapitulation für ${obsId} korrigiert`); } catch (e) {}
     };
 
     if (cancelCorr) cancelCorr.onclick = () => {
@@ -780,6 +825,7 @@ const renderHypothesis = async (vorgang) => {
         const cur = display.textContent || '';
         if (cur && cur !== 'Keine Arbeitshypothese vorhanden.') {
             saveHypothesisLocal(vorgang.id, cur);
+            try { appendSystemLog('Arbeitshypothese übernommen', vorgang.id, 'Arbeitshypothese übernommen'); } catch (e) {}
             renderHypothesis(vorgang);
         }
     };
@@ -796,6 +842,7 @@ const renderHypothesis = async (vorgang) => {
         const txt = textarea.value.trim();
         if (!txt) return;
         saveHypothesisLocal(vorgang.id, txt);
+        try { appendSystemLog('Arbeitshypothese übernommen', vorgang.id, 'Arbeitshypothese übernommen'); } catch (e) {}
         renderHypothesis(vorgang);
     };
 
