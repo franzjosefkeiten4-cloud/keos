@@ -1242,6 +1242,157 @@ const saveSummaryLocal = (vorgangId, text) => {
     }
 };
 
+const proposalKeyFor = (vorgangId) => `keosVorgangProposal:${vorgangId}`;
+const loadProposalLocal = (vorgangId) => {
+    try {
+        const raw = localStorage.getItem(proposalKeyFor(vorgangId));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (e) {
+        return null;
+    }
+};
+const saveProposalLocal = (vorgangId, obj) => {
+    try {
+        localStorage.setItem(proposalKeyFor(vorgangId), JSON.stringify(obj || {}));
+    } catch (e) {
+        console.error('Speichern des Arbeitsvorschlags fehlgeschlagen', e);
+    }
+};
+
+const buildProposalFromSummary = (summary) => {
+    const cleaned = String(summary || '').trim();
+    if (!cleaned) return null;
+    const sentences = cleaned.split(/\.(\s|$)/).map(s => s.trim()).filter(Boolean);
+    const firstSentence = sentences[0] || cleaned;
+    const factLines = [firstSentence];
+    if (sentences.length > 1) {
+        factLines.push(sentences[1]);
+    }
+    const suggestions = [];
+    const assumptions = [];
+    if (/\b(vermut|könnte|möglich|wahrscheinlich|scheint|wahrschlich)\b/i.test(cleaned)) {
+        assumptions.push('Es ist anzunehmen, dass die Lage noch nicht abschließend geklärt ist.');
+    } else {
+        assumptions.push('Es ist anzunehmen, dass diese Beobachtung Handlungsbedarf signalisiert.');
+    }
+    if (/\b(Entscheidung|beschlossen|entschieden|geplant|veranlasst)\b/i.test(cleaned)) {
+        suggestions.push('Dokumentiere die Entscheidung im Vorgang und kläre die Umsetzung.');
+    } else if (/\b(Auswirkung|Risiko|Problem|Gefahr|Störung|Behinderung)\b/i.test(cleaned)) {
+        suggestions.push('Lege den Fall als offenen Vorgangspunkt an und prüfe die Nachverfolgung.');
+    } else {
+        suggestions.push('Fasse die Beobachtung als offenen Punkt zusammen und priorisiere die nächste Aktion.');
+    }
+    return {
+        text: `${suggestions[0]}`,
+        recommendation: suggestions[0],
+        facts: factLines,
+        assumptions,
+        createdAt: new Date().toISOString(),
+        accepted: false,
+        documented: false
+    };
+};
+
+const renderProposal = (vorgang) => {
+    const display = document.getElementById('proposalDisplay');
+    const actions = document.getElementById('proposalActions');
+    const editor = document.getElementById('proposalEditor');
+    const textarea = document.getElementById('proposalTextarea');
+    const adoptBtn = document.getElementById('proposalAdopt');
+    const editBtn = document.getElementById('proposalEdit');
+    const documentBtn = document.getElementById('proposalDocument');
+    const saveBtn = document.getElementById('proposalSave');
+    const cancelBtn = document.getElementById('proposalCancel');
+    if (!display) return;
+
+    let proposal = loadProposalLocal(vorgang.id);
+    let summaryText = loadSummaryLocal(vorgang.id);
+    if (!summaryText) {
+        const summaryDisplay = document.getElementById('summaryDisplay');
+        summaryText = summaryDisplay ? summaryDisplay.textContent : '';
+    }
+    if (!proposal && summaryText && summaryText !== 'Keine Zusammenfassung vorhanden.') {
+        proposal = buildProposalFromSummary(summaryText);
+        if (proposal) {
+            saveProposalLocal(vorgang.id, proposal);
+        }
+    }
+
+    if (!proposal) {
+        display.textContent = 'Noch kein Vorschlag vorhanden.';
+        if (actions) actions.style.display = 'none';
+        if (editor) editor.style.display = 'none';
+        if (textarea) textarea.value = '';
+        return;
+    }
+
+    const proposalHtml = [
+        `<div class="proposal-card">`,
+        `<div class="proposal-section"><strong>Empfehlung</strong><p>${proposal.recommendation || proposal.text}</p></div>`,
+        `<div class="proposal-section"><strong>Fakten</strong><ul>${proposal.facts.map(item => `<li>${item}</li>`).join('')}</ul></div>`,
+        `<div class="proposal-section"><strong>Annahmen</strong><ul>${proposal.assumptions.map(item => `<li>${item}</li>`).join('')}</ul></div>`,
+        `<div class="proposal-section"><strong>Mögliche Aktionen</strong><ul><li>Vorschlag übernehmen</li><li>Vorschlag bearbeiten</li><li>Nur dokumentieren</li></ul></div>`,
+        proposal.accepted ? `<p class="proposal-status">Vorschlag übernommen am ${formatProcessedDate(proposal.acceptedAt)}</p>` : proposal.documented ? `<p class="proposal-status">Nur dokumentiert am ${formatProcessedDate(proposal.documentedAt)}</p>` : '<p class="proposal-status">Der Vorschlag wartet auf Bestätigung.</p>',
+        `</div>`
+    ].join('');
+    display.innerHTML = proposalHtml;
+    if (actions) actions.style.display = 'flex';
+    if (editor) editor.style.display = 'none';
+    if (textarea) textarea.value = proposal.text || '';
+
+    if (adoptBtn) {
+        adoptBtn.onclick = () => {
+            proposal.accepted = true;
+            proposal.acceptedAt = new Date().toISOString();
+            proposal.documented = false;
+            saveProposalLocal(vorgang.id, proposal);
+            renderProposal(vorgang);
+        };
+    }
+
+    if (editBtn) {
+        editBtn.onclick = () => {
+            if (!editor || !textarea) return;
+            textarea.value = proposal.text || '';
+            editor.style.display = 'block';
+            if (actions) actions.style.display = 'none';
+        };
+    }
+
+    if (documentBtn) {
+        documentBtn.onclick = () => {
+            proposal.documented = true;
+            proposal.documentedAt = new Date().toISOString();
+            proposal.accepted = false;
+            saveProposalLocal(vorgang.id, proposal);
+            renderProposal(vorgang);
+        };
+    }
+
+    if (saveBtn) {
+        saveBtn.onclick = () => {
+            if (!textarea) return;
+            const text = textarea.value.trim();
+            if (!text) return;
+            proposal.text = text;
+            proposal.recommendation = text;
+            proposal.accepted = false;
+            proposal.documented = false;
+            saveProposalLocal(vorgang.id, proposal);
+            renderProposal(vorgang);
+        };
+    }
+
+    if (cancelBtn) {
+        cancelBtn.onclick = () => {
+            if (editor) editor.style.display = 'none';
+            if (actions) actions.style.display = 'flex';
+        };
+    }
+};
+
 const renderSummary = (vorgang) => {
     const display = document.getElementById('summaryDisplay');
     const actions = document.getElementById('summaryActions');
@@ -1294,6 +1445,7 @@ const renderSummary = (vorgang) => {
             saveSummaryLocal(vorgang.id, txt);
             try { appendSystemLog('Zusammenfassung bestätigt', vorgang.id, 'Zusammenfassung übernommen'); } catch (e) {}
             renderSummary(vorgang);
+            renderProposal(vorgang);
         };
     }
 
@@ -1303,6 +1455,7 @@ const renderSummary = (vorgang) => {
             if (actions) actions.style.display = saved ? 'block' : 'none';
         };
     }
+    renderProposal(vorgang);
 };
 
 const generateSummaryFromAnswers = (answers) => {
@@ -1493,6 +1646,7 @@ const showGeneratedSummary = (text, vorgang) => {
         if (!txt) return;
         saveSummaryLocal(vorgang.id, txt);
         renderSummary(vorgang);
+        renderProposal(vorgang);
     };
     if (cancelBtn) cancelBtn.onclick = () => {
         if (editor) editor.style.display = 'none';
