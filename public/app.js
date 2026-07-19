@@ -323,6 +323,24 @@ const initPilotFeedback = () => {
 window.addEventListener('load', initPilotFeedback);
 
 let workplaceMode = null;
+let captureType = null;
+const setCaptureType = (type) => {
+    captureType = type;
+    const captureButtons = [
+        document.getElementById('captureObservation'),
+        document.getElementById('captureIdea'),
+        document.getElementById('captureProblem'),
+        document.getElementById('captureDecision')
+    ];
+    captureButtons.forEach((btn) => {
+        if (!btn) return;
+        btn.className = btn.id === `capture${type.charAt(0).toUpperCase() + type.slice(1)}` ? 'primary' : 'secondary';
+    });
+    const modePicker = document.getElementById('workplaceModePicker');
+    if (modePicker) modePicker.style.display = captureType ? 'block' : 'none';
+    setWorkplaceMode(null);
+};
+
 const setWorkplaceMode = (mode) => {
     workplaceMode = mode === 'guided' ? 'guided' : mode === 'free' ? 'free' : null;
     const freeBtn = document.getElementById('workplaceModeFree');
@@ -403,6 +421,15 @@ const loadSystemLog = () => {
 
 // Bind the workplace mode selection and controls
 window.addEventListener('load', () => {
+    const intentCapture = document.getElementById('intentCapture');
+    const intentLookup = document.getElementById('intentLookup');
+    const intentContinue = document.getElementById('intentContinue');
+    const intentOrganize = document.getElementById('intentOrganize');
+    const intentCaptureArea = document.getElementById('intentCaptureArea');
+    const captureObservation = document.getElementById('captureObservation');
+    const captureIdea = document.getElementById('captureIdea');
+    const captureProblem = document.getElementById('captureProblem');
+    const captureDecision = document.getElementById('captureDecision');
     const freeModeBtn = document.getElementById('workplaceModeFree');
     const guidedModeBtn = document.getElementById('workplaceModeGuided');
     const speechBtn = document.getElementById('workplaceSpeechButton');
@@ -412,7 +439,54 @@ window.addEventListener('load', () => {
     const finishBtn = document.getElementById('workplaceFinish');
     const startInterviewBtn = document.getElementById('workplaceStartInterview');
 
-    setWorkplaceMode(null);
+    if (intentCapture && intentCaptureArea) {
+        intentCapture.onclick = () => {
+            intentCaptureArea.style.display = 'block';
+            intentCapture.className = 'primary';
+            if (intentLookup) intentLookup.className = 'secondary';
+            if (intentContinue) intentContinue.className = 'secondary';
+            if (intentOrganize) intentOrganize.className = 'secondary';
+        };
+    }
+    if (intentLookup) {
+        intentLookup.onclick = () => {
+            intentLookup.className = 'primary';
+            if (intentCapture) intentCapture.className = 'secondary';
+            if (intentContinue) intentContinue.className = 'secondary';
+            if (intentOrganize) intentOrganize.className = 'secondary';
+        };
+    }
+    if (intentContinue) {
+        intentContinue.onclick = () => {
+            intentContinue.className = 'primary';
+            if (intentCapture) intentCapture.className = 'secondary';
+            if (intentLookup) intentLookup.className = 'secondary';
+            if (intentOrganize) intentOrganize.className = 'secondary';
+        };
+    }
+    if (intentOrganize) {
+        intentOrganize.onclick = () => {
+            intentOrganize.className = 'primary';
+            if (intentCapture) intentCapture.className = 'secondary';
+            if (intentLookup) intentLookup.className = 'secondary';
+            if (intentContinue) intentContinue.className = 'secondary';
+        };
+    }
+
+    const setCaptureButtons = () => {
+        const buttons = [captureObservation, captureIdea, captureProblem, captureDecision];
+        buttons.forEach((btn) => {
+            if (!btn) return;
+            btn.className = 'secondary';
+            btn.onclick = () => {
+                const type = btn.id.replace('capture', '').toLowerCase();
+                setCaptureType(type);
+                btn.className = 'primary';
+            };
+        });
+    };
+
+    setCaptureButtons();
 
     if (freeModeBtn) freeModeBtn.onclick = () => {
         setWorkplaceMode('free');
