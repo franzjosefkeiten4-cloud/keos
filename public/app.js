@@ -1,6 +1,7 @@
 import "./dashboard.js";
 
 function buildVorgangFocus(vorgang) {
+    console.log('Empfehlung gestartet', { status: vorgang?.status, beobachtungen: vorgang?.beobachtungen?.length, id: vorgang?.id });
     const status = String(vorgang.status || '').toLowerCase();
     const hasEvents = Array.isArray(vorgang.ereignisse) && vorgang.ereignisse.length > 0;
     const hasDecisions = Array.isArray(vorgang.entscheidungen) && vorgang.entscheidungen.length > 0;
@@ -47,17 +48,23 @@ function buildVorgangFocus(vorgang) {
         reason = 'Es sind keine offenen Eingänge mehr vorhanden; der Fokus liegt auf der nächsten Aufgabe im Vorgang.';
     }
 
-    return {
+    const result = {
         recommendation,
         reason,
         primaryAction,
         secondaryAction
     };
+    console.log('Empfehlung erhalten', result);
+    return result;
 }
 
 function renderVorgangFocus(vorgang) {
+    console.log('Analyse gestartet: renderVorgangFocus', { id: vorgang?.id });
     const focusCard = document.getElementById('vorgangFocusCard');
-    if (!focusCard) return;
+    if (!focusCard) {
+        console.error('Render Fokus: focus card nicht gefunden');
+        return;
+    }
 
     const focus = buildVorgangFocus(vorgang);
     focusCard.innerHTML = `
@@ -101,11 +108,16 @@ function renderVorgangFocus(vorgang) {
             }
         };
     }
+    console.log('UI aktualisiert: Fokus-Karte gerendert', focus);
 }
 
 function renderVorgang(vorgang) {
+    console.log('Render gestartet: renderVorgang', { id: vorgang?.id, titel: vorgang?.titel });
     const container = document.getElementById('loadedVorgang');
-    if (!container) return;
+    if (!container) {
+        console.error('Render Vorgang: container loadedVorgang nicht gefunden');
+        return;
+    }
 
     const setText = (id, value) => {
         const el = document.getElementById(id);
@@ -320,6 +332,7 @@ async function loadVorgang() {
 
         const vorgang = await response.json();
         console.log("Vorgang geladen:", vorgang);
+        console.log("Analyse gestartet: renderVorgang wird aufgerufen");
         renderVorgang(vorgang);
     } catch (error) {
         console.error("Vorgang konnte nicht geladen werden:", error);
