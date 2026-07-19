@@ -924,6 +924,38 @@ const updateObservationLocal = (vorgangId, updatedObs) => {
     }
 };
 
+const appendTimelineEvent = (vorgang, text, type = 'decision') => {
+    if (!vorgang || !text) return;
+    try {
+        const localKey = `keosVorgangEvents:${vorgang.id}`;
+        const raw = localStorage.getItem(localKey);
+        const existing = raw ? JSON.parse(raw) : [];
+        const events = Array.isArray(existing) ? existing : [];
+        events.push({
+            id: `TL-${Date.now()}`,
+            text: String(text),
+            erstelltAm: new Date().toISOString(),
+            type: type,
+            quelle: 'system'
+        });
+        localStorage.setItem(localKey, JSON.stringify(events));
+    } catch (e) {
+        console.error('Timeline-Eintrag konnte nicht gespeichert werden', e);
+    }
+};
+
+const persistCurrentSummary = (vorgang) => {
+    if (!vorgang) return;
+    const display = document.getElementById('summaryDisplay');
+    if (!display) return;
+    const current = display.textContent || '';
+    if (!current || current === 'Keine Zusammenfassung vorhanden.') return;
+    const saved = loadSummaryLocal(vorgang.id);
+    if (saved !== current) {
+        saveSummaryLocal(vorgang.id, current);
+    }
+};
+
 const applyObservationConfirmation = (vorgang, obsId, confirmedText) => {
     const observations = loadObservationsLocal(vorgang?.id);
     const idx = observations.findIndex((item) => item.id === obsId);
@@ -1529,11 +1561,14 @@ const completeObservationLifecycle = (vorgang, obs, reason) => {
 };
 
 const completeProposalLifecycle = (vorgang, completionText, processReason) => {
-    collapseAnalysisBlock(completionText);
+    if (!vorgang) return;
+    persistCurrentSummary(vorgang);
+    appendTimelineEvent(vorgang, 'Arbeitsvorschlag übernommen.');
     const obs = findFirstOpenObservation(vorgang);
     if (obs) {
         completeObservationLifecycle(vorgang, obs, processReason);
     }
+    collapseAnalysisBlock(completionText);
     if (currentVorgang && currentVorgang.id === vorgang.id) {
         renderBeobachtungen(vorgang);
         renderVorgang(vorgang);
