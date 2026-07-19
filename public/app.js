@@ -818,6 +818,13 @@ const renderBeobachtungen = (vorgang) => {
             q7.textContent = `Entscheidung: ${obs.entscheidung}`;
             container.appendChild(q7);
         }
+        if (obs.status || obs.nextStepType) {
+            const statusText = `Status: ${obs.status || 'Dokumentiert'}${obs.nextStepType ? `, Weiterer Schritt: ${getNextStepLabel(obs.nextStepType)}` : ''}`;
+            const statusEl = document.createElement('p');
+            statusEl.textContent = statusText;
+            statusEl.style.fontWeight = '700';
+            container.appendChild(statusEl);
+        }
         // show recap/meta if available
         const metaStore = loadObservationsMetaLocal(vorgang.id);
         const meta = metaStore && metaStore[obs.id] ? metaStore[obs.id] : null;
@@ -869,6 +876,7 @@ const startObservationInterview = () => {
             let current = 0;
             const answers = Array(questions.length).fill('');
 
+            hideObservationCompletion();
             const openModal = () => {
                 modal.style.display = 'flex';
                 updateView();
@@ -997,6 +1005,7 @@ const startFreeMode = () => {
                 return resolve(null);
             }
 
+            hideObservationCompletion();
             const obs = {
                 id: `BE-${Date.now()}`,
                 wasIstPassiert: text,
@@ -1396,10 +1405,12 @@ const showRecapUI = (vorgang, recapText, obsId) => {
         meta[obsId].confirmedRecap = currentRecap;
         meta[obsId].confirmed = true;
         saveObservationsMetaLocal(vorgang.id, meta);
+        const obs = applyObservationConfirmation(vorgang, obsId, currentRecap);
         try { appendSystemLog('Rekapitulation bestätigt', vorgang.id, `Rekapitulation für ${obsId} bestätigt`); } catch (e) {}
         cleanup();
-        // re-render Beobachtungen to show confirmation badge
+        // re-render Beobachtungen and show completion view
         renderBeobachtungen(vorgang);
+        if (obs) showObservationCompletion(vorgang, obs);
     };
 
     if (noBtn) noBtn.onclick = () => {
@@ -1447,6 +1458,55 @@ const buildStructurePreview = (vorgang, obsId) => {
         const content = lines.length > 1 ? `<ul>${lines.map((line) => `<li>${line}</li>`).join('')}</ul>` : `<p>${lines[0]}</p>`;
         return `<div class="recap-card"><strong>${section.title}</strong>${content}</div>`;
     }).join('');
+};
+
+const getNextStepLabel = (nextStepType) => {
+    switch (nextStepType) {
+        case 'open': return 'Offenen Punkt';
+        case 'task': return 'Aufgabe';
+        case 'decision': return 'Entscheidung';
+        case 'document':
+        default:
+            return 'Dokumentiert';
+    }
+};
+
+const showObservationCompletion = (vorgang, obs) => {
+    const card = document.getElementById('observationCompletionCard');
+    const summaryEl = document.getElementById('observationSavedSummary');
+    const assignmentEl = document.getElementById('observationAssignmentInfo');
+    const noteEl = document.getElementById('observationCompletionNote');
+    const btnDocument = document.getElementById('nextStepDocument');
+    const btnOpen = document.getElementById('nextStepOpen');
+    const btnTask = document.getElementById('nextStepTask');
+    const btnDecision = document.getElementById('nextStepDecision');
+    if (!card || !summaryEl || !assignmentEl || !noteEl) return;
+
+    card.style.display = 'block';
+    summaryEl.textContent = `Beobachtung ${obs.id} wurde gespeichert.`;
+    assignmentEl.textContent = obs.processId
+        ? `Zugeordnet zum Vorgang ${obs.processId}.` : 'Diese Beobachtung ist noch keinem Vorgang zugeordnet.';
+    const statusLabel = getNextStepLabel(obs.nextStepType);
+    noteEl.textContent = obs.nextStepType
+        ? `Aktuell markiert als: ${statusLabel}.` : 'Wähle aus, wie weiter mit der Beobachtung verfahren werden soll.';
+
+    const selectNextStep = (type, status) => {
+        updateObservationNextStep(vorgang, obs.id, type, status);
+        const label = getNextStepLabel(type);
+        noteEl.textContent = `Die Beobachtung wurde als ${label} markiert.`;
+        try { appendSystemLog('Weiterer Schritt gewählt', vorgang.id, `Beobachtung ${obs.id} als ${type} markiert`); } catch (e) {}
+        renderBeobachtungen(vorgang);
+    };
+
+    if (btnDocument) btnDocument.onclick = () => selectNextStep('document', 'documented');
+    if (btnOpen) btnOpen.onclick = () => selectNextStep('open', 'open');
+    if (btnTask) btnTask.onclick = () => selectNextStep('task', 'task');
+    if (btnDecision) btnDecision.onclick = () => selectNextStep('decision', 'decision');
+};
+
+const hideObservationCompletion = () => {
+    const card = document.getElementById('observationCompletionCard');
+    if (card) card.style.display = 'none';
 };
 
 // New wrapper with confirmation loop
