@@ -1348,15 +1348,29 @@ const completeWorkplaceTransition = () => {
     }
 };
 
-const hideWorkplaceEntryInput = () => {
+const setWorkplacePendingState = () => {
     const input = document.getElementById('workplaceInput');
     const finishBtn = document.getElementById('workplaceFinish');
     const speechBtn = document.getElementById('workplaceSpeechButton');
     const stopBtn = document.getElementById('workplaceStopRecording');
-    if (input) input.style.display = 'none';
-    if (finishBtn) finishBtn.style.display = 'none';
-    if (speechBtn) speechBtn.style.display = 'none';
-    if (stopBtn) stopBtn.style.display = 'none';
+    const msg = document.getElementById('workplaceSpeechMessage');
+    if (input) {
+        input.readOnly = true;
+        input.style.opacity = '0.8';
+    }
+    if (finishBtn) {
+        finishBtn.disabled = true;
+    }
+    if (speechBtn) {
+        speechBtn.disabled = true;
+    }
+    if (stopBtn) {
+        stopBtn.disabled = true;
+        stopBtn.style.display = 'none';
+    }
+    if (msg) {
+        msg.textContent = '✓ Aufnahme abgeschlossen. KEOS analysiert deine Eingabe...';
+    }
 };
 
 const startFreeMode = () => {
@@ -1377,6 +1391,7 @@ const startFreeMode = () => {
                 return resolve(null);
             }
 
+            setWorkplacePendingState();
             hideObservationCompletion();
             const obs = {
                 id: `BE-${Date.now()}`,
