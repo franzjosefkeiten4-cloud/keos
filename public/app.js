@@ -711,10 +711,81 @@ window.addEventListener('load', () => {
             }
         };
     }
+
+    const toggleProcessedBtn = document.getElementById('toggleProcessedEntries');
+    if (toggleProcessedBtn) {
+        toggleProcessedBtn.onclick = () => {
+            toggleProcessedVisibility();
+            if (currentVorgang) renderBeobachtungen(currentVorgang);
+        };
+    }
 });
 const observationsKeyFor = (vorgangId) => `keosVorgangObservations:${vorgangId || 'unassigned'}`;
 
 const DEFAULT_OBSERVATION_USER = 'lokal';
+let showProcessedEntries = false;
+let currentVorgang = null;
+
+const isProcessedEntry = (obs) => {
+    if (!obs) return false;
+    if (obs.processedAt) return true;
+    if (obs.status && obs.status !== 'neu' && obs.status !== 'open') return true;
+    return false;
+};
+
+const processOptions = [
+    { value: 'task', label: 'Aufgabe erstellt' },
+    { value: 'hero', label: 'Zu Hero übernommen' },
+    { value: 'saved', label: 'Im Vorgang gespeichert' },
+    { value: 'delegated', label: 'Delegiert' },
+    { value: 'documented', label: 'Nur dokumentiert' }
+];
+
+const formatProcessedDate = (iso) => {
+    if (!iso) return 'unbekannt';
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return 'ungültig';
+    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const openProcessModal = (vorgang, obsId) => {
+    const modal = document.getElementById('entryProcessModal');
+    const optionContainer = document.getElementById('entryProcessOptions');
+    const cancelBtn = document.getElementById('entryProcessCancel');
+    if (!modal || !optionContainer || !cancelBtn) return;
+    optionContainer.innerHTML = '';
+    const obs = loadObservationsLocal(vorgang.id).find((item) => item.id === obsId);
+    if (!obs) return;
+    processOptions.forEach((option) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'secondary';
+        btn.textContent = option.label;
+        btn.style.width = '100%';
+        btn.onclick = () => {
+            obs.processedAt = new Date().toISOString();
+            obs.processedBy = DEFAULT_OBSERVATION_USER;
+            obs.processedReason = option.label;
+            obs.status = 'processed';
+            updateObservationLocal(vorgang.id, obs);
+            modal.style.display = 'none';
+            renderBeobachtungen(vorgang);
+        };
+        optionContainer.appendChild(btn);
+    });
+    cancelBtn.onclick = () => {
+        modal.style.display = 'none';
+    };
+    modal.style.display = 'flex';
+};
+
+const toggleProcessedVisibility = () => {
+    showProcessedEntries = !showProcessedEntries;
+    const toggle = document.getElementById('toggleProcessedEntries');
+    if (toggle) {
+        toggle.textContent = showProcessedEntries ? 'Nur offene anzeigen' : 'Verarbeitete anzeigen';
+    }
+};
 
 const loadObservationsLocal = (vorgangId) => {
     try {
@@ -758,7 +829,7 @@ const applyObservationConfirmation = (vorgang, obsId, confirmedText) => {
     obs.rawInput = obs.rawInput || obs.wasIstPassiert || '';
     obs.createdBy = obs.createdBy || DEFAULT_OBSERVATION_USER;
     obs.processId = obs.processId !== undefined ? obs.processId : (vorgang?.id || null);
-    obs.status = obs.status || (vorgang?.id ? 'documented' : 'unassigned');
+    obs.status = obs.status || 'open';
     obs.nextStepType = obs.nextStepType || null;
     observations[idx] = obs;
     saveObservationsLocal(vorgang?.id, observations);
@@ -827,17 +898,22 @@ const renderObservationDetails = (obs) => {
 };
 
 const renderBeobachtungen = (vorgang) => {
+    currentVorgang = vorgang;
     const el = document.getElementById('vorgang-eingaenge');
     if (!el) return;
     const originals = Array.isArray(vorgang.beobachtungen) ? vorgang.beobachtungen : [];
     const local = loadObservationsLocal(vorgang.id);
     const merged = originals.concat(local);
     el.innerHTML = '';
-    if (!Array.isArray(merged) || merged.length === 0) {
-        el.textContent = 'Keine Eingänge vorhanden.';
+    const visibleItems = merged.filter((obs) => {
+        if (showProcessedEntries) return true;
+        return !isProcessedEntry(obs);
+    });
+    if (!Array.isArray(visibleItems) || visibleItems.length === 0) {
+        el.textContent = showProcessedEntries ? 'Keine verarbeiteten Eingänge vorhanden.' : 'Keine offenen Eingänge vorhanden.';
         return;
     }
-    merged.forEach(obs => {
+    visibleItems.forEach(obs => {
         const card = document.createElement('article');
         card.className = 'entry-card';
 
@@ -876,21 +952,14 @@ const renderBeobachtungen = (vorgang) => {
         detailButton.textContent = 'Details anzeigen';
         actionRow.appendChild(detailButton);
 
-        const statusSelect = document.createElement('select');
-        statusSelect.className = 'secondary';
-        ['neu', 'in-bearbeitung', 'delegiert', 'erledigt'].forEach((value) => {
-            const option = document.createElement('option');
-            option.value = value;
-            option.textContent = formatStatusLabel(value);
-            if ((obs.status || 'neu') === value) option.selected = true;
-            statusSelect.appendChild(option);
-        });
-        statusSelect.onchange = () => {
-            obs.status = statusSelect.value;
-            updateObservationLocal(vorgang.id, obs);
-            renderBeobachtungen(vorgang);
-        };
-        actionRow.appendChild(statusSelect);
+        if (!isProcessedEntry(obs)) {
+            const processButton = document.createElement('button');
+            processButton.type = 'button';
+            processButton.className = 'primary';
+            processButton.textContent = 'Verarbeiten';
+            processButton.onclick = () => openProcessModal(vorgang, obs.id);
+            actionRow.appendChild(processButton);
+        }
         card.appendChild(actionRow);
 
         const detailsEl = document.createElement('details');
@@ -907,6 +976,14 @@ const renderBeobachtungen = (vorgang) => {
         detailButton.onclick = () => {
             detailsEl.open = !detailsEl.open;
         };
+
+        if (obs.processedAt) {
+            const processedInfo = document.createElement('p');
+            processedInfo.style.margin = '10px 0 0 0';
+            processedInfo.style.color = '#555';
+            processedInfo.textContent = `Verarbeitet am ${formatProcessedDate(obs.processedAt)} · Grund: ${obs.processedReason || 'Keine Angabe'} · von ${obs.processedBy || 'unbekannt'}`;
+            card.appendChild(processedInfo);
+        }
 
         el.appendChild(card);
     });

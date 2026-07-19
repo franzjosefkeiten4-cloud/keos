@@ -103,7 +103,11 @@
           <div class="verlauf-list">
             <article class="card">
               <div class="card-head"><h4>📥 Eingänge</h4></div>
-              <div id="vorgang-eingaenge">Keine Einträge vorhanden.</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+                <div id="entryInfo" style="color:#444;font-size:0.95rem;">Offene Eingänge</div>
+                <button id="toggleProcessedEntries" class="secondary" type="button">Verarbeitete anzeigen</button>
+              </div>
+              <div id="vorgang-eingaenge">Keine Eingänge vorhanden.</div>
               <p style="margin-top:8px;font-size:0.95rem;color:#444;">Jede abgeschlossene Beobachtung wird hier als kompakter Eingang angezeigt. Den kompletten Verlauf findest du über "Details".</p>
               <div style="margin-top:8px; display:flex; gap:8px;">
                 <button id="startObservationInterview" class="primary">Geführtes Interview</button>
@@ -225,6 +229,16 @@
   <div id="pilotBar" style="position:fixed;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 20px;background:rgba(255,255,255,0.96);border-top:1px solid rgba(71,72,26,.12);font-size:0.9rem;z-index:1000;backdrop-filter:blur(8px);">
     <div>KEOS v0.3.1 · Build-Datum: 2026-07-18 · Status: Firebase Live</div>
     <button id="pilotFeedbackButton" class="secondary" type="button">💬 Feedback</button>
+  </div>
+  <div id="entryProcessModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.35);z-index:1003;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:#ffffff;max-width:420px;width:100%;border-radius:20px;padding:20px;box-shadow:0 25px 60px rgba(0,0,0,0.18);">
+      <h3 style="margin-top:0;">Eingang verarbeiten</h3>
+      <p>Wähle den Verarbeitungsgrund aus:</p>
+      <div id="entryProcessOptions" style="display:grid;gap:10px;margin-top:14px;"></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">
+        <button id="entryProcessCancel" class="secondary" type="button">Abbrechen</button>
+      </div>
+    </div>
   </div>
   <div id="pilotFeedbackDialog" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.35);z-index:1001;align-items:center;justify-content:center;padding:20px;">
     <div style="background:#ffffff;max-width:560px;width:100%;border-radius:20px;padding:20px;box-shadow:0 25px 60px rgba(0,0,0,0.18);">
