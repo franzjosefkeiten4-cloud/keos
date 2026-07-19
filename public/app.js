@@ -712,7 +712,9 @@ window.addEventListener('load', () => {
         };
     }
 });
-const observationsKeyFor = (vorgangId) => `keosVorgangObservations:${vorgangId}`;
+const observationsKeyFor = (vorgangId) => `keosVorgangObservations:${vorgangId || 'unassigned'}`;
+
+const DEFAULT_OBSERVATION_USER = 'lokal';
 
 const loadObservationsLocal = (vorgangId) => {
     try {
@@ -744,6 +746,34 @@ const updateObservationLocal = (vorgangId, updatedObs) => {
     } catch (e) {
         console.error('Aktualisieren der Beobachtung fehlgeschlagen', e);
     }
+};
+
+const applyObservationConfirmation = (vorgang, obsId, confirmedText) => {
+    const observations = loadObservationsLocal(vorgang?.id);
+    const idx = observations.findIndex((item) => item.id === obsId);
+    if (idx < 0) return null;
+    const obs = observations[idx];
+    obs.type = 'observation';
+    obs.confirmedText = confirmedText;
+    obs.rawInput = obs.rawInput || obs.wasIstPassiert || '';
+    obs.createdBy = obs.createdBy || DEFAULT_OBSERVATION_USER;
+    obs.processId = obs.processId !== undefined ? obs.processId : (vorgang?.id || null);
+    obs.status = obs.status || (vorgang?.id ? 'documented' : 'unassigned');
+    obs.nextStepType = obs.nextStepType || null;
+    observations[idx] = obs;
+    saveObservationsLocal(vorgang?.id, observations);
+    return obs;
+};
+
+const updateObservationNextStep = (vorgang, obsId, nextStepType, status) => {
+    const observations = loadObservationsLocal(vorgang?.id);
+    const idx = observations.findIndex((item) => item.id === obsId);
+    if (idx < 0) return null;
+    const obs = observations[idx];
+    obs.nextStepType = nextStepType;
+    obs.status = status;
+    saveObservationsLocal(vorgang?.id, observations);
+    return obs;
 };
 
 const renderBeobachtungen = (vorgang) => {
