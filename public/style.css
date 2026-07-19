@@ -9,6 +9,24 @@ h1,h2,h3,p{margin-top:0}h1{margin-bottom:0;font-size:clamp(2rem,4vw,3.5rem)}h2{f
 .card-head{display:flex;justify-content:space-between;align-items:center}.task-list{display:grid;gap:12px}.task{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;padding:16px;border-radius:16px;background:var(--cream)}
 .task.done{opacity:.58}.task.done .task-title{text-decoration:line-through}.priority{width:42px;height:42px;display:grid;place-items:center;border-radius:50%;color:white;background:var(--dark);font-weight:800}
 .task-title{margin:0 0 4px;font-weight:800}.task-reason{margin:0;color:#62644b;font-size:.9rem}.task button{border:1px solid var(--olive);border-radius:10px;padding:8px 11px;color:var(--dark);background:transparent;cursor:pointer}
-.primary{border:0;border-radius:12px;padding:12px 16px;color:white;background:var(--olive);font-weight:800;cursor:pointer}.rules{line-height:1.7}
-.feedback{display:grid;grid-template-columns:.65fr 1.35fr;gap:28px}textarea{width:100%;margin-bottom:10px;border:1px solid #7776;border-radius:12px;padding:13px}.message{min-height:1.4em;color:var(--dark);font-weight:700}
-footer{padding:24px;text-align:center;color:#6e7058}@media(max-width:800px){.hero,.feedback{display:block}.grid{grid-template-columns:1fr}.hero .primary{margin-top:18px}}
+.primary{border:0;border-radius:12px;padding:14px 20px;color:white;background:var(--olive);font-weight:800;cursor:pointer;min-height:48px;min-width:120px;transition:transform .15s ease,box-shadow .15s ease}
+.secondary{border:1px solid rgba(71,72,26,.16);border-radius:12px;padding:12px 18px;color:var(--forest);background:rgba(255,255,255,.9);cursor:pointer;min-height:48px;transition:transform .15s ease,box-shadow .15s ease}
+button{font-size:0.98rem;line-height:1.3;letter-spacing:.01em}
+button:focus-visible{outline:3px solid rgba(123,131,50,.4);outline-offset:3px}
+.intent-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:12px}
+.intent-card{border:1px solid rgba(71,72,26,.12);border-radius:18px;padding:22px;background:#fff;text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:10px;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease;cursor:pointer}
+.intent-card:hover,.intent-card:focus-visible{border-color:var(--olive);box-shadow:0 10px 30px rgba(123,131,50,.12);transform:translateY(-1px)}
+.intent-card span:first-child{font-size:1.4rem;line-height:1.1;font-weight:800}
+.intent-card span:last-child{color:#4e513b;font-size:0.98rem;line-height:1.6}
+.button-group{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.button-group button{flex:1 1 auto;white-space:normal}
+.card-head h3{font-size:1.35rem;margin-bottom:10px}
+textarea, input[type=text]{font-size:1rem;line-height:1.6;min-height:140px}
+textarea{min-height:140px}
+.quiet-text{margin:0 0 12px 0;color:#4f513d;font-size:0.98rem;line-height:1.6}
+#recapActions, #summaryActions, #hypothesisActions{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+#recapCorrection div, #summaryEditor div, #hypothesisEditor div{display:flex;flex-wrap:wrap;gap:10px}
+#recapConfirmation h5, #beobachtung-summary h5, #arbeitshypothese h5{margin-bottom:10px}
+#workplaceFreeArea, #workplaceGuidedArea, #workplaceModePicker, #intentCaptureArea{padding:18px;border:1px solid rgba(71,72,26,.08);border-radius:18px;background:rgba(255,255,255,.95);margin-top:18px}
+@media(max-width:900px){.grid{grid-template-columns:1fr;}.card{padding:18px}.intent-card{padding:18px}.button-group{flex-direction:column;align-items:stretch}.primary, .secondary{width:100%}}
+@media(max-width:600px){.layout{margin:18px auto}.intent-card span:first-child{font-size:1.2rem}.card-head h3{font-size:1.2rem}.topbar{flex-direction:column;align-items:flex-start}.hero{flex-direction:column;align-items:flex-start}}

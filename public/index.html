@@ -31,28 +31,28 @@
       <article class="card">
         <div class="card-head"><h3>Wobei kann ich dich heute unterstützen?</h3></div>
         <div>
-          <div id="intentNavigator" style="display:grid;gap:12px;margin-top:12px;">
-            <button id="intentCapture" class="intent-card" type="button" style="text-align:left;display:flex;flex-direction:column;align-items:flex-start;padding:18px;border-radius:16px;border:1px solid rgba(71,72,26,.12);background:#fff;">
-              <span style="font-size:1.4rem;line-height:1;">📝 Etwas festhalten</span>
-              <span style="margin-top:8px;color:#444;">Beobachtungen, Ideen, Probleme oder Entscheidungen dokumentieren.</span>
+          <div id="intentNavigator" class="intent-grid">
+            <button id="intentCapture" class="intent-card" type="button">
+              <span>📝 Etwas festhalten</span>
+              <span>Beobachtungen, Ideen, Probleme oder Entscheidungen dokumentieren.</span>
             </button>
-            <button id="intentLookup" class="intent-card" type="button" style="text-align:left;display:flex;flex-direction:column;align-items:flex-start;padding:18px;border-radius:16px;border:1px solid rgba(71,72,26,.12);background:#fff;">
-              <span style="font-size:1.4rem;line-height:1;">🔍 Etwas nachschlagen</span>
-              <span style="margin-top:8px;color:#444;">Wissen, Regeln, Erfahrungen oder ähnliche Fälle finden.</span>
+            <button id="intentLookup" class="intent-card" type="button">
+              <span>🔍 Etwas nachschlagen</span>
+              <span>Wissen, Regeln, Erfahrungen oder ähnliche Fälle finden.</span>
             </button>
-            <button id="intentContinue" class="intent-card" type="button" style="text-align:left;display:flex;flex-direction:column;align-items:flex-start;padding:18px;border-radius:16px;border:1px solid rgba(71,72,26,.12);background:#fff;">
-              <span style="font-size:1.4rem;line-height:1;">📂 An einem Vorgang weiterarbeiten</span>
-              <span style="margin-top:8px;color:#444;">Einen bestehenden Vorgang öffnen oder fortsetzen.</span>
+            <button id="intentContinue" class="intent-card" type="button">
+              <span>📂 An einem Vorgang weiterarbeiten</span>
+              <span>Einen bestehenden Vorgang öffnen oder fortsetzen.</span>
             </button>
-            <button id="intentOrganize" class="intent-card" type="button" style="text-align:left;display:flex;flex-direction:column;align-items:flex-start;padding:18px;border-radius:16px;border:1px solid rgba(71,72,26,.12);background:#fff;">
-              <span style="font-size:1.4rem;line-height:1;">📊 Arbeit organisieren</span>
-              <span style="margin-top:8px;color:#444;">Prioritäten, Aufgaben und Entscheidungen planen.</span>
+            <button id="intentOrganize" class="intent-card" type="button">
+              <span>📊 Arbeit organisieren</span>
+              <span>Prioritäten, Aufgaben und Entscheidungen planen.</span>
             </button>
           </div>
 
           <div id="intentCaptureArea" style="display:none;margin-top:18px;">
             <p class="eyebrow">Was möchtest du festhalten?</p>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+            <div class="button-group" style="margin-top:8px;">
               <button id="captureObservation" class="secondary" type="button">Beobachtung</button>
               <button id="captureIdea" class="secondary" type="button">Idee</button>
               <button id="captureProblem" class="secondary" type="button">Problem</button>
@@ -60,22 +60,22 @@
             </div>
             <div id="workplaceModePicker" style="display:none;margin-top:16px;">
               <p class="eyebrow">Wie möchtest du arbeiten?</p>
-              <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+              <div class="button-group" style="margin-top:8px;">
                 <button id="workplaceModeFree" class="secondary" type="button">Freies Erzählen</button>
                 <button id="workplaceModeGuided" class="secondary" type="button">Geführtes Interview</button>
               </div>
-              <div id="workplaceModeHint" style="margin-top:8px;font-size:0.95rem;color:#444;">Wähle einen Modus, um mit deiner Beobachtung zu beginnen.</div>
+              <div id="workplaceModeHint" class="quiet-text">Wähle einen Modus, um mit deiner Beobachtung zu beginnen.</div>
             </div>
 
             <div id="workplaceFreeArea" style="display:none;margin-top:16px;">
               <p style="margin:0 0 8px 0;">Erzähle einfach in deinen eigenen Worten. Ich höre zunächst nur zu.</p>
-              <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+              <div class="button-group" style="margin-bottom:8px;">
                 <button id="workplaceSpeechButton" class="secondary" type="button">Mikrofon starten</button>
                 <button id="workplaceStopRecording" class="secondary" type="button" style="display:none;">Aufnahme beenden</button>
               </div>
-              <textarea id="workplaceInput" rows="8" style="width:100%;border:1px solid rgba(71,72,26,.12);border-radius:12px;padding:12px;margin-bottom:8px;display:block;"></textarea>
+              <textarea id="workplaceInput" rows="8" style="width:100%;border:1px solid rgba(71,72,26,.12);border-radius:12px;padding:12px;margin-bottom:10px;display:block;"></textarea>
               <button id="workplaceFinish" class="primary" type="button">Ich bin fertig</button>
-              <div id="workplaceSpeechMessage" style="margin-top:6px;font-size:0.9rem;color:#555;"></div>
+              <div id="workplaceSpeechMessage" class="quiet-text"></div>
             </div>
 
             <div id="workplaceGuidedArea" style="display:none;margin-top:16px;">

@@ -337,7 +337,15 @@ const setCaptureType = (type) => {
         btn.className = btn.id === `capture${type.charAt(0).toUpperCase() + type.slice(1)}` ? 'primary' : 'secondary';
     });
     const modePicker = document.getElementById('workplaceModePicker');
-    if (modePicker) modePicker.style.display = captureType ? 'block' : 'none';
+    if (modePicker) {
+        modePicker.style.display = captureType ? 'block' : 'none';
+        if (captureType) {
+            setTimeout(() => {
+                const firstModeBtn = document.getElementById('workplaceModeFree');
+                if (firstModeBtn) firstModeBtn.focus();
+            }, 0);
+        }
+    }
     setWorkplaceMode(null);
 };
 
@@ -375,6 +383,18 @@ const setWorkplaceMode = (mode) => {
         } else {
             hint.textContent = 'Wähle einen Modus, um mit deiner Beobachtung zu beginnen.';
         }
+    }
+    if (workplaceMode === 'free') {
+        setTimeout(() => {
+            const input = document.getElementById('workplaceInput');
+            if (input) input.focus();
+        }, 0);
+    }
+    if (workplaceMode === 'guided') {
+        setTimeout(() => {
+            const startInterviewBtn = document.getElementById('workplaceStartInterview');
+            if (startInterviewBtn) startInterviewBtn.focus();
+        }, 0);
     }
 };
 
@@ -446,6 +466,7 @@ window.addEventListener('load', () => {
             if (intentLookup) intentLookup.className = 'secondary';
             if (intentContinue) intentContinue.className = 'secondary';
             if (intentOrganize) intentOrganize.className = 'secondary';
+            if (captureObservation) captureObservation.focus();
         };
     }
     if (intentLookup) {
@@ -668,6 +689,9 @@ const startObservationInterview = () => {
                 stopRecognition();
                 recognition = createSpeechRecognition(mic, input, speechMsg, modalStop);
                 nextBtn.disabled = false;
+                setTimeout(() => {
+                    input.focus();
+                }, 0);
             };
 
             const cleanupHandlers = () => {
@@ -681,10 +705,26 @@ const startObservationInterview = () => {
                 closeModal();
             };
 
+            const handleKeydown = (event) => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    abort();
+                    document.removeEventListener('keydown', handleKeydown);
+                    return resolve(null);
+                }
+                if (event.key === 'Enter' && document.activeElement === input) {
+                    event.preventDefault();
+                    nextBtn.click();
+                }
+            };
+
             openModal();
+            setTimeout(() => input.focus(), 0);
+            document.addEventListener('keydown', handleKeydown);
 
             cancelBtn.onclick = () => {
                 abort();
+                document.removeEventListener('keydown', handleKeydown);
                 return resolve(null);
             };
 
@@ -710,7 +750,7 @@ const startObservationInterview = () => {
                     local.push(obs);
                     saveObservationsLocal(vorgang.id, local);
                     try { appendSystemLog('Beobachtung erstellt', vorgang.id, `Beobachtung ${obs.id} erstellt`); } catch (e) {}
-                    cleanupHandlers(); closeModal(); renderBeobachtungen(vorgang);
+                    cleanupHandlers(); document.removeEventListener('keydown', handleKeydown); closeModal(); renderBeobachtungen(vorgang);
                     return resolve(obs);
                 }
                 const reactions = [
@@ -978,9 +1018,25 @@ const askMissingInfoFollowUpQuestions = (vorgang, obs, followUps) => {
             stopRecognition();
             if (nextBtn) nextBtn.onclick = null;
             if (cancelBtn) cancelBtn.onclick = null;
+            document.removeEventListener('keydown', handleKeydown);
+        };
+
+        const handleKeydown = (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                cleanup();
+                closeModal();
+                return resolve();
+            }
+            if (event.key === 'Enter' && document.activeElement === input) {
+                event.preventDefault();
+                nextBtn.click();
+            }
         };
 
         openModal();
+        setTimeout(() => input.focus(), 0);
+        document.addEventListener('keydown', handleKeydown);
 
         cancelBtn.onclick = () => {
             cleanup();
