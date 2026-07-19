@@ -776,70 +776,139 @@ const updateObservationNextStep = (vorgang, obsId, nextStepType, status) => {
     return obs;
 };
 
+const summarizeText = (text, maxLength = 120) => {
+    if (!text) return 'Keine Zusammenfassung verfügbar.';
+    const normalized = String(text).trim().replace(/\s+/g, ' ');
+    if (normalized.length <= maxLength) return normalized;
+    return `${normalized.slice(0, maxLength).trim()}…`;
+};
+
+const generateEntryTitle = (obs) => {
+    const source = String(obs.wasIstPassiert || obs.warumWichtig || obs.auswirkung || obs.wasIstSicher || obs.wasVermutestDu || obs.entscheidung || '').trim().replace(/\s+/g, ' ');
+    if (!source) return `Eingang ${obs.id}`;
+    const words = source.split(' ').slice(0, 8);
+    return words.join(' ') + (words.length < source.split(' ').length ? '…' : '');
+};
+
+const formatEntryDate = (iso) => {
+    if (!iso) return 'Unbekanntes Datum';
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return 'Ungültiges Datum';
+    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const formatStatusLabel = (status) => {
+    switch (status) {
+        case 'in-bearbeitung': return 'In Bearbeitung';
+        case 'delegiert': return 'Delegiert';
+        case 'erledigt': return 'Erledigt';
+        case 'neu':
+        default:
+            return 'Neu';
+    }
+};
+
+const getObservationSummary = (obs) => {
+    if (obs.wasIstPassiert) return summarizeText(obs.wasIstPassiert, 140);
+    return summarizeText(obs.warumWichtig || obs.auswirkung || obs.wasIstSicher || obs.wasVermutestDu || obs.entscheidung, 140);
+};
+
+const renderObservationDetails = (obs) => {
+    const fields = [
+        { label: 'Was ist passiert?', value: obs.wasIstPassiert },
+        { label: 'Warum ist das wichtig?', value: obs.warumWichtig },
+        { label: 'Welche Auswirkung hat das?', value: obs.auswirkung },
+        { label: 'Was ist sicher?', value: obs.wasIstSicher },
+        { label: 'Was vermutest du?', value: obs.wasVermutestDu },
+        { label: 'Wer ist betroffen?', value: obs.werIstBetroffen },
+        { label: 'Entscheidung', value: obs.entscheidung }
+    ];
+    return fields.filter(item => item.value).map(item => `<p><strong>${item.label}</strong><br>${String(item.value).trim()}</p>`).join('');
+};
+
 const renderBeobachtungen = (vorgang) => {
-    const el = document.getElementById('vorgang-beobachtungen');
+    const el = document.getElementById('vorgang-eingaenge');
     if (!el) return;
     const originals = Array.isArray(vorgang.beobachtungen) ? vorgang.beobachtungen : [];
     const local = loadObservationsLocal(vorgang.id);
     const merged = originals.concat(local);
     el.innerHTML = '';
     if (!Array.isArray(merged) || merged.length === 0) {
-        el.textContent = 'Keine Einträge vorhanden.';
+        el.textContent = 'Keine Eingänge vorhanden.';
         return;
     }
     merged.forEach(obs => {
-        const container = document.createElement('div');
-        container.className = 'beobachtung-item';
-        const h = document.createElement('p');
-        h.textContent = `ID: ${obs.id}`;
-        container.appendChild(h);
-        const q1 = document.createElement('p');
-        q1.textContent = `1) Was ist passiert? ${obs.wasIstPassiert || ''}`;
-        container.appendChild(q1);
-        const q2 = document.createElement('p');
-        q2.textContent = `2) Warum ist das wichtig? ${obs.warumWichtig || ''}`;
-        container.appendChild(q2);
-        const q3 = document.createElement('p');
-        q3.textContent = `3) Welche Auswirkung hat das? ${obs.auswirkung || ''}`;
-        container.appendChild(q3);
-        const q4 = document.createElement('p');
-        q4.textContent = `4) Was ist sicher? ${obs.wasIstSicher || ''}`;
-        container.appendChild(q4);
-        const q5 = document.createElement('p');
-        q5.textContent = `5) Was vermutest du? ${obs.wasVermutestDu || ''}`;
-        container.appendChild(q5);
-        if (obs.werIstBetroffen) {
-            const q6 = document.createElement('p');
-            q6.textContent = `Wer betroffen: ${obs.werIstBetroffen}`;
-            container.appendChild(q6);
-        }
-        if (obs.entscheidung) {
-            const q7 = document.createElement('p');
-            q7.textContent = `Entscheidung: ${obs.entscheidung}`;
-            container.appendChild(q7);
-        }
-        if (obs.status || obs.nextStepType) {
-            const statusText = `Status: ${obs.status || 'Dokumentiert'}${obs.nextStepType ? `, Weiterer Schritt: ${getNextStepLabel(obs.nextStepType)}` : ''}`;
-            const statusEl = document.createElement('p');
-            statusEl.textContent = statusText;
-            statusEl.style.fontWeight = '700';
-            container.appendChild(statusEl);
-        }
-        // show recap/meta if available
-        const metaStore = loadObservationsMetaLocal(vorgang.id);
-        const meta = metaStore && metaStore[obs.id] ? metaStore[obs.id] : null;
-        if (meta) {
-            if (meta.confirmed && meta.confirmedRecap) {
-                const conf = document.createElement('p');
-                conf.textContent = `Bestätigte Rekapitulation: ${meta.confirmedRecap}`;
-                container.appendChild(conf);
-            } else if (meta.recap) {
-                const pre = document.createElement('p');
-                pre.textContent = `Vorläufige Rekapitulation: ${meta.recap}`;
-                container.appendChild(pre);
-            }
-        }
-        el.appendChild(container);
+        const card = document.createElement('article');
+        card.className = 'entry-card';
+
+        const header = document.createElement('div');
+        header.className = 'entry-card-head';
+        const title = document.createElement('h4');
+        title.textContent = generateEntryTitle(obs);
+        header.appendChild(title);
+        const badge = document.createElement('span');
+        badge.className = `entry-badge entry-badge-${obs.status || 'neu'}`;
+        badge.textContent = formatStatusLabel(obs.status || 'neu');
+        header.appendChild(badge);
+        card.appendChild(header);
+
+        const meta = document.createElement('div');
+        meta.className = 'entry-meta';
+        const dateEl = document.createElement('span');
+        dateEl.textContent = `Erstellt: ${formatEntryDate(obs.erstelltAm || obs.createdAt)}`;
+        meta.appendChild(dateEl);
+        const processEl = document.createElement('span');
+        processEl.textContent = obs.processId ? `Vorgang: ${obs.processId}` : 'Noch nicht zugeordnet';
+        meta.appendChild(processEl);
+        card.appendChild(meta);
+
+        const summary = document.createElement('p');
+        summary.className = 'entry-summary';
+        summary.textContent = getObservationSummary(obs);
+        card.appendChild(summary);
+
+        const actionRow = document.createElement('div');
+        actionRow.className = 'entry-actions';
+
+        const detailButton = document.createElement('button');
+        detailButton.type = 'button';
+        detailButton.className = 'secondary';
+        detailButton.textContent = 'Details anzeigen';
+        actionRow.appendChild(detailButton);
+
+        const statusSelect = document.createElement('select');
+        statusSelect.className = 'secondary';
+        ['neu', 'in-bearbeitung', 'delegiert', 'erledigt'].forEach((value) => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = formatStatusLabel(value);
+            if ((obs.status || 'neu') === value) option.selected = true;
+            statusSelect.appendChild(option);
+        });
+        statusSelect.onchange = () => {
+            obs.status = statusSelect.value;
+            updateObservationLocal(vorgang.id, obs);
+            renderBeobachtungen(vorgang);
+        };
+        actionRow.appendChild(statusSelect);
+        card.appendChild(actionRow);
+
+        const detailsEl = document.createElement('details');
+        detailsEl.className = 'entry-details';
+        const summaryEl = document.createElement('summary');
+        summaryEl.textContent = 'Verlauf anzeigen';
+        detailsEl.appendChild(summaryEl);
+        const detailsBody = document.createElement('div');
+        detailsBody.className = 'entry-detail-body';
+        detailsBody.innerHTML = renderObservationDetails(obs);
+        detailsEl.appendChild(detailsBody);
+        card.appendChild(detailsEl);
+
+        detailButton.onclick = () => {
+            detailsEl.open = !detailsEl.open;
+        };
+
+        el.appendChild(card);
     });
 };
 
