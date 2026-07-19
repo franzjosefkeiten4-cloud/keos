@@ -323,14 +323,25 @@ function renderVorgang(vorgang) {
 
 async function loadVorgang() {
     try {
-        const response = await fetch("../data/vorgaenge/VG-0001.json");
+        const response = await fetch("./data/vorgaenge/VG-0001.json");
+        console.log("Vorgang fetch url:", response.url);
+        console.log("Vorgang fetch status:", response.status);
+        const text = await response.text();
+        console.log("Vorgang fetch body:", text);
 
         if (!response.ok) {
-            console.error("Vorgang konnte nicht geladen werden:", response.status, response.statusText);
+            console.error("Vorgang konnte nicht geladen werden:", response.status, response.statusText, response.url);
             return;
         }
 
-        const vorgang = await response.json();
+        let vorgang;
+        try {
+            vorgang = JSON.parse(text);
+        } catch (parseError) {
+            console.error('Vorgang JSON konnte nicht geparst werden:', parseError, text);
+            return;
+        }
+
         console.log("Vorgang geladen:", vorgang);
         console.log("Analyse gestartet: renderVorgang wird aufgerufen");
         renderVorgang(vorgang);
