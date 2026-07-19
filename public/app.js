@@ -324,12 +324,14 @@ function renderVorgang(vorgang) {
 async function loadVorgang() {
     try {
         const response = await fetch("/data/vorgaenge/VG-0001.json");
-        console.log("FETCH URL:", response.url);
-        console.log("STATUS:", response.status);
-        console.log("CONTENT:", response.headers.get("content-type"));
-        const txt = await response.text();
-        console.log("BODY:", txt.substring(0, 200));
-        console.error("Debug-Stop nach Response-Dump: JSON-Parsing vorübergehend deaktiviert.");
+        console.group("KEOS Fetch Debug");
+        console.log("URL:", response.url);
+        console.log("Status:", response.status);
+        console.log("Content-Type:", response.headers.get("content-type"));
+        const body = await response.text();
+        console.log("Response Preview:", body.substring(0, 300));
+        console.trace("Wer hat diesen Fetch ausgelöst?");
+        console.groupEnd();
         return;
     } catch (error) {
         console.error("Vorgang konnte nicht geladen werden:", error);
