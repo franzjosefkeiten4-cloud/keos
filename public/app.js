@@ -1299,6 +1299,66 @@ const startObservationInterview = () => {
     });
 };
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const showWorkplaceTransition = () => {
+    const card = document.getElementById('workplaceTransitionCard');
+    if (!card) return;
+    card.classList.add('show');
+    card.style.display = 'block';
+    const final = document.getElementById('workplaceTransitionFinal');
+    if (final) final.style.display = 'none';
+    const steps = Array.from(card.querySelectorAll('.transition-step'));
+    steps.forEach((step) => {
+        step.classList.remove('active', 'completed');
+    });
+};
+
+const animateWorkplaceTransition = async () => {
+    const card = document.getElementById('workplaceTransitionCard');
+    if (!card) return;
+    const steps = Array.from(card.querySelectorAll('.transition-step'));
+    for (let i = 0; i < steps.length; i += 1) {
+        steps[i].classList.add('active');
+        await delay(360);
+        steps[i].classList.remove('active');
+        steps[i].classList.add('completed');
+    }
+};
+
+const completeWorkplaceTransition = () => {
+    const final = document.getElementById('workplaceTransitionFinal');
+    const showResult = document.getElementById('workplaceTransitionShowResult');
+    if (final) final.style.display = 'block';
+    if (showResult) {
+        showResult.onclick = () => {
+            const analysisBlock = document.getElementById('analysisBlock');
+            const card = document.getElementById('workplaceTransitionCard');
+            if (analysisBlock) analysisBlock.style.display = 'block';
+            if (card) card.style.display = 'none';
+            const input = document.getElementById('workplaceInput');
+            const finishBtn = document.getElementById('workplaceFinish');
+            const speechBtn = document.getElementById('workplaceSpeechButton');
+            const stopBtn = document.getElementById('workplaceStopRecording');
+            if (input) input.style.display = 'block';
+            if (finishBtn) finishBtn.style.display = 'inline-flex';
+            if (speechBtn) speechBtn.style.display = 'inline-flex';
+            if (stopBtn) stopBtn.style.display = 'none';
+        };
+    }
+};
+
+const hideWorkplaceEntryInput = () => {
+    const input = document.getElementById('workplaceInput');
+    const finishBtn = document.getElementById('workplaceFinish');
+    const speechBtn = document.getElementById('workplaceSpeechButton');
+    const stopBtn = document.getElementById('workplaceStopRecording');
+    if (input) input.style.display = 'none';
+    if (finishBtn) finishBtn.style.display = 'none';
+    if (speechBtn) speechBtn.style.display = 'none';
+    if (stopBtn) stopBtn.style.display = 'none';
+};
+
 const startFreeMode = () => {
     return new Promise(async (resolve) => {
         try {

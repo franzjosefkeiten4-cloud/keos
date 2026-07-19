@@ -76,6 +76,19 @@
               <textarea id="workplaceInput" rows="8" style="width:100%;border:1px solid rgba(71,72,26,.12);border-radius:12px;padding:12px;margin-bottom:10px;display:block;"></textarea>
               <button id="workplaceFinish" class="primary" type="button">Ich bin fertig</button>
               <div id="workplaceSpeechMessage" class="quiet-text"></div>
+              <div id="workplaceTransitionCard" class="transition-card" style="display:none;">
+                <div class="transition-title">Ich kümmere mich jetzt darum.</div>
+                <div class="transition-subtitle">Ich werte deine Eingabe aus.</div>
+                <ul class="transition-steps">
+                  <li class="transition-step">Thema erkennen</li>
+                  <li class="transition-step">Offene Punkte suchen</li>
+                  <li class="transition-step">Nächsten Schritt vorbereiten</li>
+                </ul>
+                <div id="workplaceTransitionFinal" class="transition-final" style="display:none;">
+                  <p>Ich glaube verstanden zu haben, worum es geht.</p>
+                  <button id="workplaceTransitionShowResult" class="primary" type="button">Ergebnis anzeigen</button>
+                </div>
+              </div>
             </div>
 
             <div id="workplaceGuidedArea" style="display:none;margin-top:16px;">
