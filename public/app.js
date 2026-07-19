@@ -1373,6 +1373,30 @@ const setWorkplacePendingState = () => {
     }
 };
 
+const resetWorkplacePendingState = () => {
+    const input = document.getElementById('workplaceInput');
+    const finishBtn = document.getElementById('workplaceFinish');
+    const speechBtn = document.getElementById('workplaceSpeechButton');
+    const stopBtn = document.getElementById('workplaceStopRecording');
+    const msg = document.getElementById('workplaceSpeechMessage');
+    if (input) {
+        input.readOnly = false;
+        input.style.opacity = '1';
+    }
+    if (finishBtn) {
+        finishBtn.disabled = false;
+    }
+    if (speechBtn) {
+        speechBtn.disabled = false;
+    }
+    if (stopBtn) {
+        stopBtn.disabled = false;
+    }
+    if (msg && msg.textContent === '✓ Aufnahme abgeschlossen. KEOS analysiert deine Eingabe...') {
+        msg.textContent = '';
+    }
+};
+
 const startFreeMode = () => {
     return new Promise(async (resolve) => {
         try {
@@ -1384,14 +1408,16 @@ const startFreeMode = () => {
             const msg = document.getElementById('workplaceSpeechMessage');
             if (!input) return resolve(null);
 
+            setWorkplacePendingState();
             await speechController.stopActive();
+            setWorkplacePendingState();
             const text = (input.value || '').trim();
             if (!text) {
                 if (msg) msg.textContent = 'Bitte erzähle zuerst etwas, bevor du fertig bist.';
+                resetWorkplacePendingState();
                 return resolve(null);
             }
 
-            setWorkplacePendingState();
             hideObservationCompletion();
             const obs = {
                 id: `BE-${Date.now()}`,
