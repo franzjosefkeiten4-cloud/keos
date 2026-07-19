@@ -270,99 +270,174 @@ async function createDecisionFromEvent() {
 const createDecisionBtn = document.getElementById('createDecisionFromEvent');
 if (createDecisionBtn) createDecisionBtn.onclick = createDecisionFromEvent;
 
-// reusable speech recognition factory: attaches handlers to a mic button, an input field and a message element
-const createSpeechRecognition = (button, input, message, stopButton) => {
-    if (!button || !input) return null;
+const speechController = (() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-        if (message) message.textContent = 'Spracherkennung wird in diesem Browser nicht unterstützt.';
-        button.disabled = true;
-        if (stopButton) stopButton.style.display = 'none';
-        return null;
-    }
-
-    let recognizing = false;
+    let recognition = null;
+    let activeSession = null;
     let stopRequested = false;
-    let baseText = '';
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'de-DE';
-    recognition.interimResults = true;
-    recognition.continuous = true;
-    recognition.maxAlternatives = 1;
+    let endPromise = null;
+    let endResolver = null;
+    let state = 'idle';
 
-    const start = () => {
-        stopRequested = false;
-        baseText = input.value || '';
-        try { recognition.start(); } catch (e) { if (message) message.textContent = 'Spracherkennung konnte nicht gestartet werden.'; }
+    const updateUI = (session, status) => {
+        if (!session) return;
+        const { button, message, stopButton } = session;
+        if (button) button.textContent = status === 'capturing' ? '🛑' : '🎙️';
+        if (stopButton) stopButton.style.display = status === 'capturing' ? 'inline-block' : 'none';
+        if (message) {
+            if (status === 'capturing') message.textContent = 'Aufnahme läuft...';
+            else if (status === 'stopping') message.textContent = 'Aufnahme wird beendet...';
+            else if (status === 'idle') message.textContent = 'Aufnahme beendet.';
+        }
     };
 
-    const stop = () => {
+    const stopActive = async () => {
+        if (!recognition) return;
+        if (stopRequested) return endPromise;
         stopRequested = true;
+        if (activeSession) updateUI(activeSession, 'stopping');
         try { recognition.stop(); } catch (e) {}
+        endPromise = new Promise((resolve) => { endResolver = resolve; });
+        return endPromise;
     };
 
-    button.onclick = () => {
-        if (recognizing) {
-            stop();
-            return;
-        }
-        start();
-    };
+    const createRecognition = (session) => {
+        const r = new SpeechRecognition();
+        r.lang = 'de-DE';
+        r.interimResults = true;
+        r.continuous = true;
+        r.maxAlternatives = 1;
 
-    if (stopButton) {
-        stopButton.style.display = 'none';
-        stopButton.onclick = () => {
-            stop();
+        let baseText = session.input.value || '';
+
+        r.onstart = () => {
+            state = 'capturing';
+            updateUI(session, 'capturing');
         };
-    }
 
-    recognition.onstart = () => {
-        recognizing = true;
-        if (button) button.textContent = '🛑';
-        if (stopButton) stopButton.style.display = 'inline-block';
-        if (message) message.textContent = 'Aufnahme läuft...';
+        r.onresult = (event) => {
+            let finalText = '';
+            let interimText = '';
+            for (let i = 0; i < event.results.length; i++) {
+                const rItem = event.results[i];
+                const t = rItem[0] && rItem[0].transcript ? rItem[0].transcript : '';
+                if (rItem.isFinal) finalText += (finalText ? ' ' : '') + t;
+                else interimText += (interimText ? ' ' : '') + t;
+            }
+            const combined = (baseText ? baseText + ' ' : '') + (finalText ? finalText + ' ' : '') + interimText;
+            const normalized = combined.trim();
+            session.input.value = normalized;
+            if (typeof session.onResult === 'function') session.onResult(normalized);
+            if (session.message) session.message.textContent = interimText ? 'Ich höre weiter zu …' : 'Erkannter Text wurde übernommen.';
+        };
+
+        r.onend = () => {
+            const endedSession = activeSession;
+            recognition = null;
+            activeSession = null;
+            const wasStopped = stopRequested;
+            stopRequested = false;
+            if (wasStopped) {
+                state = 'idle';
+                updateUI(endedSession, 'idle');
+                if (endResolver) {
+                    endResolver();
+                    endResolver = null;
+                }
+                return;
+            }
+            state = 'idle';
+            updateUI(endedSession, 'idle');
+            if (endedSession && endedSession.autoRestart) {
+                setTimeout(async () => {
+                    if (!stopRequested && !recognition) {
+                        try {
+                            await startSession(endedSession);
+                        } catch (e) {
+                            if (endedSession.message) endedSession.message.textContent = 'Spracherkennung konnte nicht neu gestartet werden.';
+                        }
+                    }
+                }, 300);
+            }
+        };
+
+        r.onerror = (event) => {
+            if (session.message) session.message.textContent = `Spracherkennung fehlgeschlagen: ${event.error || 'unbekannter Fehler'}`;
+            state = 'idle';
+            updateUI(session, 'idle');
+            if (endResolver) {
+                endResolver();
+                endResolver = null;
+            }
+            recognition = null;
+            activeSession = null;
+            stopRequested = false;
+        };
+
+        return r;
     };
 
-    recognition.onresult = (event) => {
-        // build final and interim transcripts
-        let finalText = '';
-        let interimText = '';
-        for (let i = 0; i < event.results.length; i++) {
-            const r = event.results[i];
-            const t = r[0] && r[0].transcript ? r[0].transcript : '';
-            if (r.isFinal) finalText += (finalText ? ' ' : '') + t;
-            else interimText += (interimText ? ' ' : '') + t;
+    const startSession = async (session) => {
+        if (!SpeechRecognition) {
+            if (session.message) session.message.textContent = 'Spracherkennung wird in diesem Browser nicht unterstützt.';
+            if (session.button) session.button.disabled = true;
+            if (session.stopButton) session.stopButton.style.display = 'none';
+            return null;
         }
-        const combined = (baseText ? baseText + ' ' : '') + (finalText ? finalText + ' ' : '') + interimText;
-        input.value = combined.trim();
-        if (message) message.textContent = interimText ? 'Ich höre weiter zu …' : 'Erkannter Text wurde übernommen.';
-    };
-
-    recognition.onend = () => {
-        recognizing = false;
-        if (button) button.textContent = '🎙️';
-        if (stopButton) stopButton.style.display = 'none';
-        if (stopRequested) {
-            if (message) message.textContent = 'Aufnahme beendet.';
-            return;
+        if (recognition) await stopActive();
+        activeSession = session;
+        stopRequested = false;
+        recognition = createRecognition(session);
+        try {
+            recognition.start();
+        } catch (e) {
+            state = 'idle';
+            updateUI(session, 'idle');
+            recognition = null;
+            activeSession = null;
+            if (session.message) session.message.textContent = 'Spracherkennung konnte nicht gestartet werden.';
+            return null;
         }
-        // short pause: inform user and restart listening automatically
-        if (message) message.textContent = 'Ich höre weiter zu …';
-        // restart after brief delay to tolerate short pauses
-        setTimeout(() => {
-            try { recognition.start(); } catch (e) {}
-        }, 300);
+        return recognition;
     };
 
-    recognition.onerror = (event) => {
-        if (message) message.textContent = `Spracherkennung fehlgeschlagen: ${event.error || 'unbekannter Fehler'}`;
-        recognizing = false;
-        if (button) button.textContent = '🎙️';
-        if (stopButton) stopButton.style.display = 'none';
+    const registerSpeechControl = (button, input, message, stopButton, options = {}) => {
+        if (!button || !input) return null;
+        const session = {
+            button,
+            input,
+            message,
+            stopButton,
+            autoRestart: options.autoRestart !== false,
+            onResult: options.onResult
+        };
+
+        button.onclick = async () => {
+            if (activeSession === session && recognition && state === 'capturing') {
+                await stopActive();
+                return;
+            }
+            await startSession(session);
+        };
+
+        if (stopButton) {
+            stopButton.style.display = 'none';
+            stopButton.onclick = async () => {
+                await stopActive();
+            };
+        }
+
+        return session;
     };
 
-    return recognition;
-};
+    return {
+        registerSpeechControl,
+        startSession,
+        stopActive,
+        isActive: () => !!recognition,
+        isIdle: () => state === 'idle'
+    };
+})();
 
 const initSpeechRecognitionInput = () => {
     const input = document.getElementById('vorgang-ereignis-input');
@@ -370,7 +445,7 @@ const initSpeechRecognitionInput = () => {
     const message = document.getElementById('speechSupportMessage');
     const stopBtn = document.getElementById('speechStopButton');
     if (!button || !input || !message) return;
-    createSpeechRecognition(button, input, message, stopBtn);
+    speechController.registerSpeechControl(button, input, message, stopBtn, { autoRestart: true });
 };
 
 window.addEventListener('load', initSpeechRecognitionInput);
@@ -618,7 +693,7 @@ window.addEventListener('load', () => {
     };
 
     if (speechBtn && workplaceInput) {
-        createSpeechRecognition(speechBtn, workplaceInput, workplaceMsg, workplaceStop);
+        speechController.registerSpeechControl(speechBtn, workplaceInput, workplaceMsg, workplaceStop, { autoRestart: true });
     }
 
     if (finishBtn) {
@@ -763,7 +838,6 @@ const startObservationInterview = () => {
 
             let current = 0;
             const answers = Array(questions.length).fill('');
-            let recognition = null;
 
             const openModal = () => {
                 modal.style.display = 'flex';
@@ -774,42 +848,41 @@ const startObservationInterview = () => {
                 modal.style.display = 'none';
             };
 
-            const stopRecognition = () => {
-                try {
-                    if (recognition && typeof recognition.stop === 'function') recognition.stop();
-                } catch (e) {}
-                recognition = null;
-            };
-
-            const updateView = () => {
+            const updateView = async () => {
                 questionEl.textContent = questions[current];
                 progressEl.textContent = `Frage ${current + 1} von ${questions.length}`;
                 input.value = answers[current] || '';
                 if (speechMsg) speechMsg.textContent = '';
                 if (reactionEl) reactionEl.textContent = '';
-                stopRecognition();
-                recognition = createSpeechRecognition(mic, input, speechMsg, modalStop);
+                await speechController.startSession({
+                    button: mic,
+                    input,
+                    message: speechMsg,
+                    stopButton: modalStop,
+                    autoRestart: true,
+                    onResult: (text) => { input.value = text; }
+                });
                 nextBtn.disabled = false;
                 setTimeout(() => {
                     input.focus();
                 }, 0);
             };
 
-            const cleanupHandlers = () => {
-                stopRecognition();
+            const cleanupHandlers = async () => {
+                await speechController.stopActive();
                 nextBtn.onclick = null;
                 cancelBtn.onclick = null;
             };
 
-            const abort = () => {
-                cleanupHandlers();
+            const abort = async () => {
+                await cleanupHandlers();
                 closeModal();
             };
 
-            const handleKeydown = (event) => {
+            const handleKeydown = async (event) => {
                 if (event.key === 'Escape') {
                     event.preventDefault();
-                    abort();
+                    await abort();
                     document.removeEventListener('keydown', handleKeydown);
                     return resolve(null);
                 }
@@ -823,19 +896,19 @@ const startObservationInterview = () => {
             setTimeout(() => input.focus(), 0);
             document.addEventListener('keydown', handleKeydown);
 
-            cancelBtn.onclick = () => {
-                abort();
+            cancelBtn.onclick = async () => {
+                await abort();
                 document.removeEventListener('keydown', handleKeydown);
                 return resolve(null);
             };
 
-            nextBtn.onclick = () => {
-                try { if (recognition && typeof recognition.stop === 'function') recognition.stop(); } catch (e) {}
+            nextBtn.onclick = async () => {
                 answers[current] = (input.value || '').trim();
+                await speechController.stopActive();
                 if (current === questions.length - 1) {
                     const anyNonEmpty = answers.some(a => a && a.length > 0);
                     if (!anyNonEmpty) {
-                        cleanupHandlers(); closeModal(); return resolve(null);
+                        await cleanupHandlers(); closeModal(); return resolve(null);
                     }
                     const obs = {
                         id: `BE-${Date.now()}`,
@@ -851,7 +924,7 @@ const startObservationInterview = () => {
                     local.push(obs);
                     saveObservationsLocal(vorgang.id, local);
                     try { appendSystemLog('Beobachtung erstellt', vorgang.id, `Beobachtung ${obs.id} erstellt`); } catch (e) {}
-                    cleanupHandlers(); document.removeEventListener('keydown', handleKeydown); closeModal(); renderBeobachtungen(vorgang);
+                    await cleanupHandlers(); document.removeEventListener('keydown', handleKeydown); closeModal(); renderBeobachtungen(vorgang);
                     return resolve(obs);
                 }
                 const reactions = [
@@ -887,6 +960,7 @@ const startFreeMode = () => {
             const msg = document.getElementById('workplaceSpeechMessage');
             if (!input) return resolve(null);
 
+            await speechController.stopActive();
             const text = (input.value || '').trim();
             if (!text) {
                 if (msg) msg.textContent = 'Bitte erzähle zuerst etwas, bevor du fertig bist.';
@@ -1085,7 +1159,6 @@ const askMissingInfoFollowUpQuestions = (vorgang, obs, followUps) => {
         }
 
         let current = 0;
-        let recognition = null;
 
         const openModal = () => {
             modal.style.display = 'flex';
@@ -1096,36 +1169,35 @@ const askMissingInfoFollowUpQuestions = (vorgang, obs, followUps) => {
             modal.style.display = 'none';
         };
 
-        const stopRecognition = () => {
-            try {
-                if (recognition && typeof recognition.stop === 'function') recognition.stop();
-            } catch (e) {}
-            recognition = null;
-        };
-
-        const updateView = () => {
+        const updateView = async () => {
             const currentQuestion = followUps[current];
             questionEl.textContent = currentQuestion ? currentQuestion.question : '';
             progressEl.textContent = `Rückfrage ${current + 1} von ${followUps.length}`;
             input.value = '';
             if (speechMsg) speechMsg.textContent = '';
             if (reactionEl) reactionEl.textContent = '';
-            stopRecognition();
-            recognition = createSpeechRecognition(mic, input, speechMsg, modalStop);
+            await speechController.startSession({
+                button: mic,
+                input,
+                message: speechMsg,
+                stopButton: modalStop,
+                autoRestart: true,
+                onResult: (text) => { input.value = text; }
+            });
             nextBtn.disabled = false;
         };
 
-        const cleanup = () => {
-            stopRecognition();
+        const cleanup = async () => {
+            await speechController.stopActive();
             if (nextBtn) nextBtn.onclick = null;
             if (cancelBtn) cancelBtn.onclick = null;
             document.removeEventListener('keydown', handleKeydown);
         };
 
-        const handleKeydown = (event) => {
+        const handleKeydown = async (event) => {
             if (event.key === 'Escape') {
                 event.preventDefault();
-                cleanup();
+                await cleanup();
                 closeModal();
                 return resolve();
             }
@@ -1139,23 +1211,21 @@ const askMissingInfoFollowUpQuestions = (vorgang, obs, followUps) => {
         setTimeout(() => input.focus(), 0);
         document.addEventListener('keydown', handleKeydown);
 
-        cancelBtn.onclick = () => {
-            cleanup();
+        cancelBtn.onclick = async () => {
+            await cleanup();
             closeModal();
             resolve();
         };
 
-        nextBtn.onclick = () => {
-            try {
-                if (recognition && typeof recognition.stop === 'function') recognition.stop();
-            } catch (e) {}
+        nextBtn.onclick = async () => {
             const currentQuestion = followUps[current];
             if (currentQuestion) {
                 obs[currentQuestion.field] = (input.value || '').trim();
                 updateObservationLocal(vorgang.id, obs);
             }
+            await speechController.stopActive();
             if (current === followUps.length - 1) {
-                cleanup();
+                await cleanup();
                 closeModal();
                 return resolve();
             }
