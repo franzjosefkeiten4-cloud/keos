@@ -1,5 +1,103 @@
 import "./dashboard.js";
 
+function buildVorgangFocus(vorgang) {
+    const status = String(vorgang.status || '').toLowerCase();
+    const hasEvents = Array.isArray(vorgang.ereignisse) && vorgang.ereignisse.length > 0;
+    const hasDecisions = Array.isArray(vorgang.entscheidungen) && vorgang.entscheidungen.length > 0;
+    const priority = Number(vorgang.prioritaet || 0);
+
+    let recommendation = 'Dokumentiere den ersten nächsten Schritt für diesen Vorgang.';
+    let reason = 'Der Vorgang enthält derzeit keine klaren Hinweise für den nächsten Schritt.';
+    let primaryAction = 'Jetzt erledigen';
+    let secondaryAction = 'Anderen Schritt wählen';
+
+    if (status === 'offen') {
+        recommendation = 'Kundenfall bewerten und nächsten Schritt festlegen.';
+        reason = 'Der Vorgang ist offen und benötigt eine erste Handlung.';
+
+        if (priority >= 80) {
+            recommendation = 'Kundenanfrage sofort beantworten.';
+            reason = 'Hohe Priorität erfordert zügiges Handeln.';
+        }
+
+        if (!hasEvents && !hasDecisions) {
+            recommendation = 'Fall prüfen und offenen Schritt festlegen.';
+            reason = 'Es gibt bisher keine Beobachtungen oder Entscheidungen im Vorgang.';
+        }
+
+        if (hasEvents && !hasDecisions) {
+            recommendation = 'Vorhandene Ereignisse bewerten und Entscheidung vorbereiten.';
+            reason = 'Es liegen Beobachtungen vor, aber noch keine Entscheidung.';
+        }
+
+        if (hasDecisions) {
+            recommendation = 'Offene Entscheidung prüfen und Umsetzung planen.';
+            reason = 'Es existiert bereits eine Entscheidung, jetzt geht es um die nächste Ausführung.';
+        }
+    } else if (status === 'geschlossen') {
+        recommendation = 'Vorgang überprüfen und abschließen.';
+        reason = 'Der Vorgang ist als geschlossen markiert und sollte final dokumentiert werden.';
+    } else if (status) {
+        recommendation = 'Vorgangsdaten prüfen und nächsten Schritt festlegen.';
+        reason = `Status: ${vorgang.status}. So verschaffst du dir einen klaren nächsten Schritt.`;
+    }
+
+    return {
+        recommendation,
+        reason,
+        primaryAction,
+        secondaryAction
+    };
+}
+
+function renderVorgangFocus(vorgang) {
+    const focusCard = document.getElementById('vorgangFocusCard');
+    if (!focusCard) return;
+
+    const focus = buildVorgangFocus(vorgang);
+    focusCard.innerHTML = `
+        <div class="focus-card-title">Nächster sinnvoller Schritt</div>
+        <div class="focus-card-recommendation">${focus.recommendation}</div>
+        <div class="focus-card-reason"><strong>Begründung:</strong><p>${focus.reason}</p></div>
+        <div class="focus-card-actions">
+            <button id="focusPrimaryAction" class="primary">${focus.primaryAction}</button>
+            <button id="focusSecondaryAction" class="secondary">${focus.secondaryAction}</button>
+        </div>
+    `;
+
+    const primaryBtn = document.getElementById('focusPrimaryAction');
+    const secondaryBtn = document.getElementById('focusSecondaryAction');
+
+    if (primaryBtn) {
+        primaryBtn.onclick = () => {
+            const interviewBtn = document.getElementById('startObservationInterview');
+            const decisionBtn = document.getElementById('createDecisionFromEvent');
+            if (interviewBtn) {
+                interviewBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                interviewBtn.focus();
+                return;
+            }
+            if (decisionBtn) {
+                decisionBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                decisionBtn.focus();
+                return;
+            }
+        };
+    }
+
+    if (secondaryBtn) {
+        secondaryBtn.onclick = () => {
+            const organizeBtn = document.getElementById('intentOrganize');
+            const continueBtn = document.getElementById('intentContinue');
+            if (organizeBtn) {
+                organizeBtn.focus();
+            } else if (continueBtn) {
+                continueBtn.focus();
+            }
+        };
+    }
+}
+
 function renderVorgang(vorgang) {
     const container = document.getElementById('loadedVorgang');
     if (!container) return;
@@ -14,6 +112,8 @@ function renderVorgang(vorgang) {
     setText('vorgang-prioritaet', vorgang.prioritaet);
     setText('vorgang-kontext', vorgang.kontext);
     setText('vorgang-verantwortlich', vorgang.verantwortlich);
+
+    renderVorgangFocus(vorgang);
 
     const renderList = (id, items) => {
         const el = document.getElementById(id);

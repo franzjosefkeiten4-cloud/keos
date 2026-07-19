@@ -21,6 +21,12 @@ button:focus-visible{outline:3px solid rgba(123,131,50,.4);outline-offset:3px}
 .button-group{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .button-group button{flex:1 1 auto;white-space:normal}
 .card-head h3{font-size:1.35rem;margin-bottom:10px}
+.focus-card{border:1px solid rgba(123,131,50,.16);border-radius:18px;padding:18px;background:rgba(123,131,50,.06);margin-bottom:18px;display:grid;gap:12px}
+.focus-card-title{font-size:1rem;font-weight:800;color:#2f2e24}
+.focus-card-recommendation{font-size:1.05rem;line-height:1.6;color:#232817}
+.focus-card-reason{color:#3c3b31;font-size:0.95rem;line-height:1.6}
+.focus-card-reason p{margin:6px 0 0 0}
+.focus-card-actions{display:flex;flex-wrap:wrap;gap:10px}
 textarea, input[type=text]{font-size:1rem;line-height:1.6;min-height:140px}
 textarea{min-height:140px}
 .quiet-text{margin:0 0 12px 0;color:#4f513d;font-size:0.98rem;line-height:1.6}
