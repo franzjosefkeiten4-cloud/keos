@@ -1449,15 +1449,7 @@ const renderProposal = (vorgang) => {
             proposal.documented = false;
             saveProposalLocal(vorgang.id, proposal);
             renderProposal(vorgang);
-        };
-    }
-
-    if (editBtn) {
-        editBtn.onclick = () => {
-            if (!editor || !textarea) return;
-            textarea.value = proposal.text || '';
-            editor.style.display = 'block';
-            if (actions) actions.style.display = 'none';
+            collapseAnalysisBlock('Arbeitsvorschlag übernommen');
         };
     }
 
@@ -1468,6 +1460,7 @@ const renderProposal = (vorgang) => {
             proposal.accepted = false;
             saveProposalLocal(vorgang.id, proposal);
             renderProposal(vorgang);
+            collapseAnalysisBlock('Dokumentiert');
         };
     }
 
@@ -1482,6 +1475,7 @@ const renderProposal = (vorgang) => {
             proposal.documented = false;
             saveProposalLocal(vorgang.id, proposal);
             renderProposal(vorgang);
+            collapseAnalysisBlock('Bearbeitet übernommen');
         };
     }
 
@@ -1489,6 +1483,41 @@ const renderProposal = (vorgang) => {
         cancelBtn.onclick = () => {
             if (editor) editor.style.display = 'none';
             if (actions) actions.style.display = 'flex';
+        };
+    }
+};
+
+const collapseAnalysisBlock = (message) => {
+    const analysis = document.getElementById('analysisBlock');
+    const completion = document.getElementById('analysisCompletionCard');
+    const completionTitle = document.getElementById('completionCardTitle');
+    const completionSubtitle = document.getElementById('completionCardSubtitle');
+    const showLink = document.getElementById('showKiAnalysisLink');
+
+    if (analysis) {
+        analysis.style.display = 'none';
+        analysis.style.opacity = '0';
+        analysis.style.transition = 'opacity 220ms ease';
+    }
+    if (completion) {
+        if (completionTitle) completionTitle.textContent = '✓ Analyse abgeschlossen';
+        if (completionSubtitle) completionSubtitle.textContent = message || 'Ergebnis gespeichert.';
+        completion.style.display = 'block';
+        completion.style.opacity = '0';
+        completion.style.animation = 'fadeIn 240ms ease forwards';
+    }
+    if (showLink) {
+        showLink.onclick = (event) => {
+            event.preventDefault();
+            if (analysis) {
+                analysis.style.display = 'block';
+                setTimeout(() => {
+                    analysis.style.opacity = '1';
+                }, 10);
+            }
+            if (completion) {
+                completion.style.display = 'none';
+            }
         };
     }
 };

@@ -48,6 +48,14 @@ textarea{min-height:140px}
 .proposal-section ul{margin:0;padding-left:20px;color:#3c3b31}
 .proposal-section li{margin-bottom:8px}
 .proposal-status{margin-top:14px;color:#5d5b4d;font-size:0.95rem}
+.analysis-block{transition:opacity 240ms ease, transform 240ms ease}
+.analysis-completion-card{border:1px solid rgba(123,131,50,.16);border-radius:18px;padding:18px;background:#f7f5e7;box-shadow:0 10px 24px rgba(0,0,0,.08);display:none;opacity:0}
+.completion-card-content{display:flex;align-items:center;gap:14px}
+.completion-card-icon{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--olive);color:white;font-weight:800;flex-shrink:0}
+.completion-card-title{font-weight:800;color:#2f2e24}
+.completion-card-subtitle{color:#3c3b31;font-size:0.95rem;line-height:1.5;margin-top:4px}
+.link-button{display:inline-flex;align-items:center;gap:6px;color:var(--olive);font-weight:700;text-decoration:none;margin-top:12px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .answered-questions{display:grid;gap:10px}
 .answered-card{background:#fbf8f0;border:1px solid rgba(71,72,26,.12);border-radius:18px;padding:14px;box-shadow:0 10px 24px rgba(0,0,0,.06);opacity:0;transform:translateY(10px);animation:fadeInUp .32s ease forwards}
 .answered-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}

@@ -116,51 +116,63 @@
               <div style="margin-top:8px; display:flex; gap:8px;">
                 <button id="startObservationInterview" class="primary">Geführtes Interview</button>
               </div>
-              <div id="beobachtung-summary" style="margin-top:8px;">
-                <h5>Vorgangszusammenfassung</h5>
-                <div id="summaryDisplay">Keine Zusammenfassung vorhanden.</div>
-                <div id="summaryActions" style="margin-top:8px; display:none;">
-                  <button id="summaryAdopt" class="primary">Übernehmen</button>
-                  <button id="summaryEdit" class="secondary">Bearbeiten</button>
+              <div id="analysisBlock" class="analysis-block">
+                <div id="beobachtung-summary" style="margin-top:8px;">
+                  <h5>Vorgangszusammenfassung</h5>
+                  <div id="summaryDisplay">Keine Zusammenfassung vorhanden.</div>
+                  <div id="summaryActions" style="margin-top:8px; display:none;">
+                    <button id="summaryAdopt" class="primary">Übernehmen</button>
+                    <button id="summaryEdit" class="secondary">Bearbeiten</button>
+                  </div>
+                  <div id="summaryEditor" style="margin-top:8px; display:none;">
+                    <textarea id="summaryTextarea" rows="4" style="width:100%;"></textarea>
+                    <div style="margin-top:8px;">
+                      <button id="summarySave" class="primary">Übernehmen</button>
+                      <button id="summaryCancel" class="secondary">Abbrechen</button>
+                    </div>
+                  </div>
                 </div>
-                <div id="summaryEditor" style="margin-top:8px; display:none;">
-                  <textarea id="summaryTextarea" rows="4" style="width:100%;"></textarea>
-                  <div style="margin-top:8px;">
-                    <button id="summarySave" class="primary">Übernehmen</button>
-                    <button id="summaryCancel" class="secondary">Abbrechen</button>
+                <div id="arbeitshypothese" style="margin-top:12px;">
+                  <h5>Arbeitshypothese</h5>
+                  <div id="hypothesisDisplay">Keine Arbeitshypothese vorhanden.</div>
+                  <div id="hypothesisActions" style="margin-top:8px; display:none;">
+                    <button id="hypothesisAdopt" class="primary">Übernehmen</button>
+                    <button id="hypothesisEdit" class="secondary">Bearbeiten</button>
+                  </div>
+                  <div id="hypothesisEditor" style="margin-top:8px; display:none;">
+                    <textarea id="hypothesisTextarea" rows="3" style="width:100%;"></textarea>
+                    <div style="margin-top:8px;">
+                      <button id="hypothesisSave" class="primary">Übernehmen</button>
+                      <button id="hypothesisCancel" class="secondary">Abbrechen</button>
+                    </div>
+                  </div>
+                </div>
+                <div id="arbeitsvorschlag" style="margin-top:16px;">
+                  <h5>Arbeitsvorschlag</h5>
+                  <div id="proposalDisplay">Noch kein Vorschlag vorhanden.</div>
+                  <div id="proposalActions" style="margin-top:8px; display:none; gap:10px;">
+                    <button id="proposalAdopt" class="primary">Vorschlag übernehmen</button>
+                    <button id="proposalEdit" class="secondary">Vorschlag bearbeiten</button>
+                    <button id="proposalDocument" class="secondary">Nur dokumentieren</button>
+                  </div>
+                  <div id="proposalEditor" style="margin-top:8px; display:none;">
+                    <textarea id="proposalTextarea" rows="4" style="width:100%;"></textarea>
+                    <div style="margin-top:8px; display:flex; gap:10px; flex-wrap:wrap;">
+                      <button id="proposalSave" class="primary">Speichern</button>
+                      <button id="proposalCancel" class="secondary">Abbrechen</button>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div id="arbeitshypothese" style="margin-top:12px;">
-                <h5>Arbeitshypothese</h5>
-                <div id="hypothesisDisplay">Keine Arbeitshypothese vorhanden.</div>
-                <div id="hypothesisActions" style="margin-top:8px; display:none;">
-                  <button id="hypothesisAdopt" class="primary">Übernehmen</button>
-                  <button id="hypothesisEdit" class="secondary">Bearbeiten</button>
-                </div>
-                <div id="hypothesisEditor" style="margin-top:8px; display:none;">
-                  <textarea id="hypothesisTextarea" rows="3" style="width:100%;"></textarea>
-                  <div style="margin-top:8px;">
-                    <button id="hypothesisSave" class="primary">Übernehmen</button>
-                    <button id="hypothesisCancel" class="secondary">Abbrechen</button>
+              <div id="analysisCompletionCard" class="analysis-completion-card" style="display:none; margin-top:16px;">
+                <div class="completion-card-content">
+                  <div class="completion-card-icon">✓</div>
+                  <div>
+                    <div id="completionCardTitle" class="completion-card-title">Analyse abgeschlossen</div>
+                    <div id="completionCardSubtitle" class="completion-card-subtitle">Arbeitsvorschlag übernommen.</div>
                   </div>
                 </div>
-              </div>
-              <div id="arbeitsvorschlag" style="margin-top:16px;">
-                <h5>Arbeitsvorschlag</h5>
-                <div id="proposalDisplay">Noch kein Vorschlag vorhanden.</div>
-                <div id="proposalActions" style="margin-top:8px; display:none; gap:10px;">
-                  <button id="proposalAdopt" class="primary">Vorschlag übernehmen</button>
-                  <button id="proposalEdit" class="secondary">Vorschlag bearbeiten</button>
-                  <button id="proposalDocument" class="secondary">Nur dokumentieren</button>
-                </div>
-                <div id="proposalEditor" style="margin-top:8px; display:none;">
-                  <textarea id="proposalTextarea" rows="4" style="width:100%;"></textarea>
-                  <div style="margin-top:8px; display:flex; gap:10px; flex-wrap:wrap;">
-                    <button id="proposalSave" class="primary">Speichern</button>
-                    <button id="proposalCancel" class="secondary">Abbrechen</button>
-                  </div>
-                </div>
+                <a href="#" id="showKiAnalysisLink" class="link-button">KI-Analyse anzeigen</a>
               </div>
               <div id="recapConfirmation" style="margin-top:12px; display:none;">
                 <h5>Rekapitulation</h5>
