@@ -323,9 +323,10 @@ function renderVorgang(vorgang) {
 
 async function loadVorgang() {
     try {
-        const response = await fetch("./data/vorgaenge/VG-0001.json");
+        const response = await fetch("/data/vorgaenge/VG-0001.json");
         console.log("Vorgang fetch url:", response.url);
         console.log("Vorgang fetch status:", response.status);
+        console.log("Vorgang fetch content-type:", response.headers.get("content-type"));
         const text = await response.text();
         console.log("Vorgang fetch body:", text);
 
@@ -354,7 +355,7 @@ loadVorgang();
 
 async function createDecisionFromEvent() {
     try {
-        const response = await fetch("../data/vorgaenge/VG-0001.json");
+        const response = await fetch("/data/vorgaenge/VG-0001.json");
         if (!response.ok) return;
 
         const vorgang = await response.json();
@@ -1153,7 +1154,7 @@ const renderBeobachtungen = (vorgang) => {
 const startObservationInterview = () => {
     return new Promise(async (resolve) => {
         try {
-            const response = await fetch("../data/vorgaenge/VG-0001.json");
+            const response = await fetch("/data/vorgaenge/VG-0001.json");
             if (!response.ok) return resolve(null);
             const vorgang = await response.json();
 
@@ -1424,7 +1425,7 @@ const resetWorkplacePendingState = () => {
 const startFreeMode = () => {
     return new Promise(async (resolve) => {
         try {
-            const response = await fetch("../data/vorgaenge/VG-0001.json");
+            const response = await fetch("/data/vorgaenge/VG-0001.json");
             if (!response.ok) return resolve(null);
             const vorgang = await response.json();
 
@@ -2001,7 +2002,7 @@ const enhancedStartObservationInterview = async () => {
     // call original interview flow
     await startObservationInterview();
     try {
-        const response = await fetch("../data/vorgaenge/VG-0001.json");
+        const response = await fetch("/data/vorgaenge/VG-0001.json");
         if (!response.ok) return;
         const vorgang = await response.json();
         const local = loadObservationsLocal(vorgang.id);
@@ -2184,7 +2185,7 @@ const hideObservationCompletion = () => {
 const enhancedStartObservationInterviewWithConfirmation = async () => {
     await startObservationInterview();
     try {
-        const response = await fetch("../data/vorgaenge/VG-0001.json");
+        const response = await fetch("/data/vorgaenge/VG-0001.json");
         if (!response.ok) return;
         const vorgang = await response.json();
         const local = loadObservationsLocal(vorgang.id);
@@ -2207,7 +2208,7 @@ if (obsBtn) obsBtn.onclick = enhancedStartObservationInterviewWithConfirmation;
 // ensure summary rendered after initial load
 window.addEventListener('load', async () => {
     try {
-        const response = await fetch("../data/vorgaenge/VG-0001.json");
+        const response = await fetch("/data/vorgaenge/VG-0001.json");
         if (!response.ok) return;
         const vorgang = await response.json();
         renderSummary(vorgang);
@@ -2311,7 +2312,7 @@ const summaryEl = document.getElementById('summaryDisplay');
 if (summaryEl) {
     const mo = new MutationObserver(async () => {
         try {
-            const response = await fetch("../data/vorgaenge/VG-0001.json");
+            const response = await fetch("/data/vorgaenge/VG-0001.json");
             if (!response.ok) return;
             const vorgang = await response.json();
             await renderHypothesis(vorgang);
@@ -2325,7 +2326,7 @@ if (summaryEl) {
 // ensure hypothesis rendered after initial load
 window.addEventListener('load', async () => {
     try {
-        const response = await fetch("../data/vorgaenge/VG-0001.json");
+        const response = await fetch("/data/vorgaenge/VG-0001.json");
         if (!response.ok) return;
         const vorgang = await response.json();
         await renderHypothesis(vorgang);
@@ -2336,7 +2337,7 @@ window.addEventListener('load', async () => {
 
 window.addEventListener('load', async () => {
     try {
-        const response = await fetch("../data/vorgaenge/VG-0001.json");
+        const response = await fetch("/data/vorgaenge/VG-0001.json");
         if (!response.ok) return;
         const vorgang = await response.json();
         renderBeobachtungen(vorgang);
