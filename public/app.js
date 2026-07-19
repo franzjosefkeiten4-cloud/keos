@@ -877,8 +877,35 @@ const startObservationInterview = () => {
             const answers = Array(questions.length).fill('');
 
             hideObservationCompletion();
+            const answeredCardsContainer = document.getElementById('modalAnsweredCards');
+            const answeredItems = [];
+            const renderAnsweredCards = () => {
+                if (!answeredCardsContainer) return;
+                answeredCardsContainer.innerHTML = '';
+                if (answeredItems.length === 0) {
+                    answeredCardsContainer.style.display = 'none';
+                    return;
+                }
+                answeredCardsContainer.style.display = 'grid';
+                answeredItems.forEach((item) => {
+                    const card = document.createElement('div');
+                    card.className = 'answered-card';
+                    const header = document.createElement('div');
+                    header.className = 'answered-card-header';
+                    const label = document.createElement('strong');
+                    label.textContent = `✓ ${item.question}`;
+                    header.appendChild(label);
+                    card.appendChild(header);
+                    const answer = document.createElement('p');
+                    answer.textContent = item.answer || 'Keine Antwort angegeben.';
+                    card.appendChild(answer);
+                    answeredCardsContainer.appendChild(card);
+                });
+            };
+
             const openModal = () => {
                 modal.style.display = 'flex';
+                renderAnsweredCards();
                 updateView();
             };
 
@@ -942,6 +969,8 @@ const startObservationInterview = () => {
 
             nextBtn.onclick = async () => {
                 answers[current] = (input.value || '').trim();
+                answeredItems.push({ question: questions[current], answer: answers[current] });
+                renderAnsweredCards();
                 await speechController.stopActive();
                 if (current === questions.length - 1) {
                     const anyNonEmpty = answers.some(a => a && a.length > 0);

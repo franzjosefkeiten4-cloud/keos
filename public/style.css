@@ -35,6 +35,12 @@ textarea{min-height:140px}
 #recapStructurePreview .recap-card p, #recapStructurePreview .recap-card ul{margin:0;font-size:0.95rem;line-height:1.5;}
 #recapStructurePreview .recap-card ul{padding-left:18px;}
 #recapStructurePreview .recap-card ul li{margin-bottom:6px;}
+.answered-questions{display:grid;gap:10px}
+.answered-card{background:#fbf8f0;border:1px solid rgba(71,72,26,.12);border-radius:18px;padding:14px;box-shadow:0 10px 24px rgba(0,0,0,.06);opacity:0;transform:translateY(10px);animation:fadeInUp .32s ease forwards}
+.answered-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
+.answered-card-header strong{font-size:0.98rem;font-weight:800;color:#2f2e24}
+.answered-card p{margin:0;color:#3c3b31;line-height:1.65;white-space:pre-wrap}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 #workplaceFreeArea, #workplaceGuidedArea, #workplaceModePicker, #intentCaptureArea{padding:18px;border:1px solid rgba(71,72,26,.08);border-radius:18px;background:rgba(255,255,255,.95);margin-top:18px}
 
 #vorgang-timeline{display:grid;gap:12px;}
