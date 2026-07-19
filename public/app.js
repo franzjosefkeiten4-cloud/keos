@@ -330,7 +330,22 @@ async function loadVorgang() {
         console.log("TYPE:", response.headers.get("content-type"));
         const body = await response.text();
         console.log(body.substring(0, 300));
-        return;
+        if (!response.ok) {
+            console.error("Vorgang konnte nicht geladen werden:", response.status, response.statusText, response.url);
+            return;
+        }
+
+        let vorgang;
+        try {
+            vorgang = JSON.parse(body);
+        } catch (parseError) {
+            console.error('Vorgang JSON konnte nicht geparst werden:', parseError, body);
+            return;
+        }
+
+        console.log("Vorgang geladen:", vorgang);
+        console.log("Analyse gestartet: renderVorgang wird aufgerufen");
+        renderVorgang(vorgang);
     } catch (error) {
         console.error("Vorgang konnte nicht geladen werden:", error);
     }
