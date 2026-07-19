@@ -1,7 +1,6 @@
 import "./dashboard.js";
 
 function buildVorgangFocus(vorgang) {
-    console.log('Empfehlung gestartet', { status: vorgang?.status, beobachtungen: vorgang?.beobachtungen?.length, id: vorgang?.id });
     const status = String(vorgang.status || '').toLowerCase();
     const hasEvents = Array.isArray(vorgang.ereignisse) && vorgang.ereignisse.length > 0;
     const hasDecisions = Array.isArray(vorgang.entscheidungen) && vorgang.entscheidungen.length > 0;
@@ -54,12 +53,10 @@ function buildVorgangFocus(vorgang) {
         primaryAction,
         secondaryAction
     };
-    console.log('Empfehlung erhalten', result);
     return result;
 }
 
 function renderVorgangFocus(vorgang) {
-    console.log('Analyse gestartet: renderVorgangFocus', { id: vorgang?.id });
     const focusCard = document.getElementById('vorgangFocusCard');
     if (!focusCard) {
         console.error('Render Fokus: focus card nicht gefunden');
@@ -108,11 +105,9 @@ function renderVorgangFocus(vorgang) {
             }
         };
     }
-    console.log('UI aktualisiert: Fokus-Karte gerendert', focus);
 }
 
 function renderVorgang(vorgang) {
-    console.log('Render gestartet: renderVorgang', { id: vorgang?.id, titel: vorgang?.titel });
     const container = document.getElementById('loadedVorgang');
     if (!container) {
         console.error('Render Vorgang: container loadedVorgang nicht gefunden');
@@ -323,28 +318,13 @@ function renderVorgang(vorgang) {
 
 async function loadVorgang() {
     try {
-        console.log("=== FETCH START ===");
         const response = await fetch("/data/vorgaenge/VG-0001.json");
-        console.log("URL:", response.url);
-        console.log("STATUS:", response.status);
-        console.log("TYPE:", response.headers.get("content-type"));
-        const body = await response.text();
-        console.log(body.substring(0, 300));
         if (!response.ok) {
             console.error("Vorgang konnte nicht geladen werden:", response.status, response.statusText, response.url);
             return;
         }
 
-        let vorgang;
-        try {
-            vorgang = JSON.parse(body);
-        } catch (parseError) {
-            console.error('Vorgang JSON konnte nicht geparst werden:', parseError, body);
-            return;
-        }
-
-        console.log("Vorgang geladen:", vorgang);
-        console.log("Analyse gestartet: renderVorgang wird aufgerufen");
+        const vorgang = await response.json();
         renderVorgang(vorgang);
     } catch (error) {
         console.error("Vorgang konnte nicht geladen werden:", error);
@@ -616,7 +596,6 @@ const initPilotFeedback = () => {
         } catch (e) {
             console.error('Feedback konnte nicht gespeichert werden', e);
         }
-        console.log('Pilot-Feedback:', feedback);
         dialog.style.display = 'none';
         liked.value = '';
         unclear.value = '';
@@ -1425,25 +1404,13 @@ const resetWorkplacePendingState = () => {
 const startFreeMode = () => {
     return new Promise(async (resolve) => {
         try {
-            console.log('Freier Modus gestartet: Vorgang wird geladen');
             const response = await fetch("/data/vorgaenge/VG-0001.json");
-            console.log('Freier Modus Fetch URL:', response.url);
-            console.log('Freier Modus HTTP:', response.status);
-            console.log('Freier Modus Content-Type:', response.headers.get('content-type'));
-            const responseText = await response.text();
-            console.log('Freier Modus Response:', responseText);
             if (!response.ok) {
                 console.error('Freier Modus: Vorgang konnte nicht geladen werden', response.status, response.statusText, response.url);
                 return resolve(null);
             }
 
-            let vorgang;
-            try {
-                vorgang = JSON.parse(responseText);
-            } catch (parseError) {
-                console.error('Freier Modus: JSON konnte nicht geparst werden', parseError, responseText);
-                return resolve(null);
-            }
+            const vorgang = await response.json();
 
             const input = document.getElementById('workplaceInput');
             const msg = document.getElementById('workplaceSpeechMessage');
@@ -1460,7 +1427,6 @@ const startFreeMode = () => {
             }
 
             hideObservationCompletion();
-            const obs = {
                 id: `BE-${Date.now()}`,
                 wasIstPassiert: text,
                 warumWichtig: '',
@@ -1492,7 +1458,6 @@ const startFreeMode = () => {
             ]);
             showGeneratedSummary(gen, vorgang);
             showRecapUI(vorgang, gen, obs.id);
-            console.log('Freier Modus abgeschlossen: Analyse und Anzeige ausgelöst');
             return resolve(obs);
         } catch (e) {
             console.error('Freier Modus fehlgeschlagen', e);
