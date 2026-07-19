@@ -324,28 +324,13 @@ function renderVorgang(vorgang) {
 async function loadVorgang() {
     try {
         const response = await fetch("/data/vorgaenge/VG-0001.json");
-        console.log("Vorgang fetch url:", response.url);
-        console.log("Vorgang fetch status:", response.status);
-        console.log("Vorgang fetch content-type:", response.headers.get("content-type"));
-        const text = await response.text();
-        console.log("Vorgang fetch body:", text);
-
-        if (!response.ok) {
-            console.error("Vorgang konnte nicht geladen werden:", response.status, response.statusText, response.url);
-            return;
-        }
-
-        let vorgang;
-        try {
-            vorgang = JSON.parse(text);
-        } catch (parseError) {
-            console.error('Vorgang JSON konnte nicht geparst werden:', parseError, text);
-            return;
-        }
-
-        console.log("Vorgang geladen:", vorgang);
-        console.log("Analyse gestartet: renderVorgang wird aufgerufen");
-        renderVorgang(vorgang);
+        console.log("FETCH URL:", response.url);
+        console.log("STATUS:", response.status);
+        console.log("CONTENT:", response.headers.get("content-type"));
+        const txt = await response.text();
+        console.log("BODY:", txt.substring(0, 200));
+        console.error("Debug-Stop nach Response-Dump: JSON-Parsing vorübergehend deaktiviert.");
+        return;
     } catch (error) {
         console.error("Vorgang konnte nicht geladen werden:", error);
     }
@@ -1430,8 +1415,8 @@ const startFreeMode = () => {
             console.log('Freier Modus Fetch URL:', response.url);
             console.log('Freier Modus HTTP:', response.status);
             console.log('Freier Modus Content-Type:', response.headers.get('content-type'));
-            const text = await response.text();
-            console.log('Freier Modus Response:', text);
+            const responseText = await response.text();
+            console.log('Freier Modus Response:', responseText);
             if (!response.ok) {
                 console.error('Freier Modus: Vorgang konnte nicht geladen werden', response.status, response.statusText, response.url);
                 return resolve(null);
@@ -1439,9 +1424,9 @@ const startFreeMode = () => {
 
             let vorgang;
             try {
-                vorgang = JSON.parse(text);
+                vorgang = JSON.parse(responseText);
             } catch (parseError) {
-                console.error('Freier Modus: JSON konnte nicht geparst werden', parseError, text);
+                console.error('Freier Modus: JSON konnte nicht geparst werden', parseError, responseText);
                 return resolve(null);
             }
 
