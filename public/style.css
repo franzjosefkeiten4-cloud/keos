@@ -27,6 +27,14 @@ textarea{min-height:140px}
 #recapActions, #summaryActions, #hypothesisActions{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
 #recapCorrection div, #summaryEditor div, #hypothesisEditor div{display:flex;flex-wrap:wrap;gap:10px}
 #recapConfirmation h5, #beobachtung-summary h5, #arbeitshypothese h5{margin-bottom:10px}
+
+#recapStructurePreview{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:14px 0;}
+#recapStructurePreview .recap-card{background:#fff;border:1px solid rgba(71,72,26,.12);border-radius:16px;padding:14px;box-shadow:0 10px 24px rgba(0,0,0,.06);}
+#recapStructurePreview .recap-card-empty{background:#faf9f3;color:#666;border-style:dashed;}
+#recapStructurePreview .recap-card strong{display:block;margin-bottom:8px;font-weight:700;}
+#recapStructurePreview .recap-card p, #recapStructurePreview .recap-card ul{margin:0;font-size:0.95rem;line-height:1.5;}
+#recapStructurePreview .recap-card ul{padding-left:18px;}
+#recapStructurePreview .recap-card ul li{margin-bottom:6px;}
 #workplaceFreeArea, #workplaceGuidedArea, #workplaceModePicker, #intentCaptureArea{padding:18px;border:1px solid rgba(71,72,26,.08);border-radius:18px;background:rgba(255,255,255,.95);margin-top:18px}
 @media(max-width:900px){.grid{grid-template-columns:1fr;}.card{padding:18px}.intent-card{padding:18px}.button-group{flex-direction:column;align-items:stretch}.primary, .secondary{width:100%}}
 @media(max-width:600px){.layout{margin:18px auto}.intent-card span:first-child{font-size:1.2rem}.card-head h3{font-size:1.2rem}.topbar{flex-direction:column;align-items:flex-start}.hero{flex-direction:column;align-items:flex-start}}

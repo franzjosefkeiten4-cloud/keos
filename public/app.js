@@ -1159,6 +1159,7 @@ const saveObservationsMetaLocal = (vorgangId, obj) => {
 const showRecapUI = (vorgang, recapText, obsId) => {
     const wrapper = document.getElementById('recapConfirmation');
     const recapEl = document.getElementById('recapText');
+    const structurePreview = document.getElementById('recapStructurePreview');
     const question = document.getElementById('recapQuestion');
     const yesBtn = document.getElementById('recapYes');
     const noBtn = document.getElementById('recapNo');
@@ -1166,11 +1167,12 @@ const showRecapUI = (vorgang, recapText, obsId) => {
     const correctionInput = document.getElementById('recapCorrectionInput');
     const sendCorr = document.getElementById('recapSendCorrection');
     const cancelCorr = document.getElementById('recapCancelCorrection');
-    if (!wrapper || !recapEl) return;
+    if (!wrapper || !recapEl || !structurePreview) return;
     wrapper.style.display = 'block';
     recapEl.textContent = recapText || '';
     question.textContent = 'Habe ich dich richtig verstanden, dass ...?';
     if (correctionDiv) correctionDiv.style.display = 'none';
+    structurePreview.innerHTML = buildStructurePreview(vorgang, obsId);
 
     const meta = loadObservationsMetaLocal(vorgang.id);
 
@@ -1223,6 +1225,27 @@ const showRecapUI = (vorgang, recapText, obsId) => {
     if (cancelCorr) cancelCorr.onclick = () => {
         if (correctionDiv) correctionDiv.style.display = 'none';
     };
+};
+
+const buildStructurePreview = (vorgang, obsId) => {
+    const observations = loadObservationsLocal(vorgang.id) || [];
+    const obs = observations.find((item) => item.id === obsId) || {};
+    const sections = [
+        { title: '👤 Betroffene', value: obs.werIstBetroffen, placeholder: 'Noch keine Informationen' },
+        { title: '👀 Beobachtungen', value: obs.wasIstPassiert, placeholder: 'Noch keine Informationen' },
+        { title: '💡 Erkenntnisse', value: [obs.warumWichtig, obs.auswirkung, obs.wasVermutestDu].filter(Boolean).join('\n'), placeholder: 'Noch keine Informationen' },
+        { title: '📌 Offene Punkte', value: obs.offenePunkte, placeholder: 'Noch keine Informationen' }
+    ];
+
+    return sections.map((section) => {
+        const text = String(section.value || '').trim();
+        if (!text) {
+            return `<div class="recap-card recap-card-empty"><strong>${section.title}</strong><p>${section.placeholder}</p></div>`;
+        }
+        const lines = text.split(/\n+/).filter(Boolean);
+        const content = lines.length > 1 ? `<ul>${lines.map((line) => `<li>${line}</li>`).join('')}</ul>` : `<p>${lines[0]}</p>`;
+        return `<div class="recap-card"><strong>${section.title}</strong>${content}</div>`;
+    }).join('');
 };
 
 // New wrapper with confirmation loop
