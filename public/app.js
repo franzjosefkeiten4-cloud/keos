@@ -343,9 +343,23 @@ const setWorkplaceMode = (mode) => {
             guidedBtn.className = 'secondary';
         }
     }
+    if (freeArea) {
+        freeArea.style.display = workplaceMode === 'free' ? 'block' : 'none';
+    }
+    if (guidedArea) {
+        guidedArea.style.display = workplaceMode === 'guided' ? 'block' : 'none';
+    }
     if (hint) {
         if (workplaceMode === 'free') {
-            hint.textContent = 'Freies Erzählen: Mikrofon starten oder tippen und dann 
+            hint.textContent = 'Erzähle einfach in deinen eigenen Worten. Ich höre zunächst nur zu.';
+        } else if (workplaceMode === 'guided') {
+            hint.textContent = 'Ich stelle dir einige Fragen und strukturiere deine Beobachtung.';
+        } else {
+            hint.textContent = 'Wähle einen Modus, um mit deiner Beobachtung zu beginnen.';
+        }
+    }
+};
+
 // Beobachtungen: Interview und Anzeige (keine bestehenden Funktionen ändern)
 
 // --- Internes System-Log (lokal) ---
@@ -387,15 +401,18 @@ const loadSystemLog = () => {
     }
 };
 
-// Bind the Gespräch beginnen button to the existing observation workflow (placeholder)
+// Bind the workplace mode selection and controls
 window.addEventListener('load', () => {
-    const convBtn = document.getElementById('startConversation');
-    const speechBtn = document.getElementById('workplaceSpeechButton');
-    const workplaceInput = document.getElementById('workplaceInput');
     const freeModeBtn = document.getElementById('workplaceModeFree');
     const guidedModeBtn = document.getElementById('workplaceModeGuided');
-    const startBtn = document.getElementById('startConversation');
-    setWorkplaceMode('free');
+    const speechBtn = document.getElementById('workplaceSpeechButton');
+    const workplaceInput = document.getElementById('workplaceInput');
+    const workplaceStop = document.getElementById('workplaceStopRecording');
+    const workplaceMsg = document.getElementById('workplaceSpeechMessage');
+    const finishBtn = document.getElementById('workplaceFinish');
+    const startInterviewBtn = document.getElementById('workplaceStartInterview');
+
+    setWorkplaceMode(null);
 
     if (freeModeBtn) freeModeBtn.onclick = () => {
         setWorkplaceMode('free');
@@ -404,30 +421,24 @@ window.addEventListener('load', () => {
         setWorkplaceMode('guided');
     };
 
-    if (convBtn) {
-        convBtn.onclick = () => {
-            if (workplaceMode === 'free') {
-                if (typeof startFreeMode === 'function') {
-                    startFreeMode();
-                    return;
-                }
-            }
+    if (speechBtn && workplaceInput) {
+        createSpeechRecognition(speechBtn, workplaceInput, workplaceMsg, workplaceStop);
+    }
+
+    if (finishBtn) {
+        finishBtn.onclick = () => {
+            if (typeof startFreeMode === 'function') startFreeMode();
+        };
+    }
+
+    if (startInterviewBtn) {
+        startInterviewBtn.onclick = () => {
             if (typeof enhancedStartObservationInterviewWithConfirmation === 'function') {
                 enhancedStartObservationInterviewWithConfirmation();
             } else if (typeof enhancedStartObservationInterview === 'function') {
                 enhancedStartObservationInterview();
-            } else {
-                console.log('Gespräch beginnen (Platzhalter)');
             }
         };
-    }
-    if (speechBtn && workplaceInput) {
-        const workplaceMsg = document.getElementById('workplaceSpeechMessage');
-        const workplaceStop = document.getElementById('workplaceStopRecording');
-        createSpeechRecognition(speechBtn, workplaceInput, workplaceMsg, workplaceStop);
-    }
-    if (startBtn) {
-        startBtn.textContent = 'Ich bin fertig';
     }
 });
 const observationsKeyFor = (vorgangId) => `keosVorgangObservations:${vorgangId}`;
