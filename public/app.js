@@ -1425,9 +1425,25 @@ const resetWorkplacePendingState = () => {
 const startFreeMode = () => {
     return new Promise(async (resolve) => {
         try {
+            console.log('Freier Modus gestartet: Vorgang wird geladen');
             const response = await fetch("/data/vorgaenge/VG-0001.json");
-            if (!response.ok) return resolve(null);
-            const vorgang = await response.json();
+            console.log('Freier Modus Fetch URL:', response.url);
+            console.log('Freier Modus HTTP:', response.status);
+            console.log('Freier Modus Content-Type:', response.headers.get('content-type'));
+            const text = await response.text();
+            console.log('Freier Modus Response:', text);
+            if (!response.ok) {
+                console.error('Freier Modus: Vorgang konnte nicht geladen werden', response.status, response.statusText, response.url);
+                return resolve(null);
+            }
+
+            let vorgang;
+            try {
+                vorgang = JSON.parse(text);
+            } catch (parseError) {
+                console.error('Freier Modus: JSON konnte nicht geparst werden', parseError, text);
+                return resolve(null);
+            }
 
             const input = document.getElementById('workplaceInput');
             const msg = document.getElementById('workplaceSpeechMessage');
@@ -1476,6 +1492,7 @@ const startFreeMode = () => {
             ]);
             showGeneratedSummary(gen, vorgang);
             showRecapUI(vorgang, gen, obs.id);
+            console.log('Freier Modus abgeschlossen: Analyse und Anzeige ausgelöst');
             return resolve(obs);
         } catch (e) {
             console.error('Freier Modus fehlgeschlagen', e);
