@@ -1427,6 +1427,7 @@ const startFreeMode = () => {
             }
 
             hideObservationCompletion();
+            const obs = {
                 id: `BE-${Date.now()}`,
                 wasIstPassiert: text,
                 warumWichtig: '',
