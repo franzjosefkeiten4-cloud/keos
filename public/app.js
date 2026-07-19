@@ -455,6 +455,19 @@ const saveObservationsLocal = (vorgangId, arr) => {
     }
 };
 
+const updateObservationLocal = (vorgangId, updatedObs) => {
+    try {
+        const observations = loadObservationsLocal(vorgangId);
+        const idx = observations.findIndex((item) => item.id === updatedObs.id);
+        if (idx >= 0) {
+            observations[idx] = updatedObs;
+            saveObservationsLocal(vorgangId, observations);
+        }
+    } catch (e) {
+        console.error('Aktualisieren der Beobachtung fehlgeschlagen', e);
+    }
+};
+
 const renderBeobachtungen = (vorgang) => {
     const el = document.getElementById('vorgang-beobachtungen');
     if (!el) return;
@@ -487,6 +500,16 @@ const renderBeobachtungen = (vorgang) => {
         const q5 = document.createElement('p');
         q5.textContent = `5) Was vermutest du? ${obs.wasVermutestDu || ''}`;
         container.appendChild(q5);
+        if (obs.werIstBetroffen) {
+            const q6 = document.createElement('p');
+            q6.textContent = `Wer betroffen: ${obs.werIstBetroffen}`;
+            container.appendChild(q6);
+        }
+        if (obs.entscheidung) {
+            const q7 = document.createElement('p');
+            q7.textContent = `Entscheidung: ${obs.entscheidung}`;
+            container.appendChild(q7);
+        }
         // show recap/meta if available
         const metaStore = loadObservationsMetaLocal(vorgang.id);
         const meta = metaStore && metaStore[obs.id] ? metaStore[obs.id] : null;
@@ -655,6 +678,8 @@ const startFreeMode = () => {
                 auswirkung: '',
                 wasIstSicher: '',
                 wasVermutestDu: '',
+                werIstBetroffen: '',
+                entscheidung: '',
                 erstelltAm: new Date().toISOString(),
                 quelle: 'frei'
             };
@@ -662,8 +687,20 @@ const startFreeMode = () => {
             local.push(obs);
             saveObservationsLocal(vorgang.id, local);
             try { appendSystemLog('Beobachtung erstellt (frei)', vorgang.id, `Beobachtung ${obs.id} erstellt (frei)`); } catch (e) {}
+            const followUps = generateFollowUpQuestions(obs);
+            if (followUps.length > 0) {
+                await askMissingInfoFollowUpQuestions(vorgang, obs, followUps);
+            }
             renderBeobachtungen(vorgang);
-            const gen = generateSummaryFromAnswers([obs.wasIstPassiert, '', '', '', '']);
+            const gen = generateSummaryFromAnswers([
+                obs.wasIstPassiert,
+                obs.warumWichtig,
+                obs.auswirkung,
+                obs.wasIstSicher,
+                obs.wasVermutestDu,
+                obs.werIstBetroffen,
+                obs.entscheidung
+            ]);
             showGeneratedSummary(gen, vorgang);
             showRecapUI(vorgang, gen, obs.id);
             return resolve(obs);
@@ -759,15 +796,146 @@ const renderSummary = (vorgang) => {
 };
 
 const generateSummaryFromAnswers = (answers) => {
-    // simple rule-based concatenation from the five answers
-    const a = answers.map(x => x ? x.trim() : '');
+    // simple rule-based concatenation from the known observation fields
+    const a = Array.isArray(answers) ? answers.map(x => x ? x.trim() : '') : [];
     const parts = [];
     if (a[0]) parts.push(`Beobachtung: ${a[0]}.`);
     if (a[1]) parts.push(`Wichtigkeit: ${a[1]}.`);
     if (a[2]) parts.push(`Auswirkung: ${a[2]}.`);
     if (a[3]) parts.push(`Sicher ist: ${a[3]}.`);
     if (a[4]) parts.push(`Vermutung: ${a[4]}.`);
+    if (a[5]) parts.push(`Betroffene: ${a[5]}.`);
+    if (a[6]) parts.push(`Entscheidung: ${a[6]}.`);
     return parts.join(' ');
+};
+
+const hasAffectedEntityInText = (text) => {
+    return /\b(Mitarbeiter|Kollege|Kollegin|Kunde|Gast|Bewohner|Team|Abteilung|Person|Eltern|Kind|Patient|Firma|Chef|Mann|Frau|Familie|Nachbar)\b/i.test(text);
+};
+
+const hasImportancePhraseInText = (text) => {
+    return /\b(wichtig|dringend|relevant|bedeutend|entscheidend|wesentlich|notwendig|muss|sollte)\b/i.test(text);
+};
+
+const hasImpactPhraseInText = (text) => {
+    return /\b(Auswirkung|Folge|Folgen|dadurch|deshalb|daher|darum|deswegen|führt|verursacht|beeinträchtigt|stört|gefährdet|Problem|Schäden|Konsequenz|Risiko)\b/i.test(text);
+};
+
+const hasDecisionPhraseInText = (text) => {
+    return /\b(entschieden|beschlossen|wir haben|ich habe|ich werde|wir werden|entscheiden|Entscheidung|Beschluss|vorgesehen|geplant|veranlasst|sollte)\b/i.test(text);
+};
+
+const generateFollowUpQuestions = (obs) => {
+    const text = String(obs.wasIstPassiert || '').trim();
+    const questions = [];
+    if (!obs.werIstBetroffen && !hasAffectedEntityInText(text)) {
+        questions.push({ field: 'werIstBetroffen', question: 'Wer war betroffen?' });
+    }
+    if (!text) {
+        questions.push({ field: 'wasIstPassiert', question: 'Was wurde beobachtet?' });
+    }
+    if (!obs.warumWichtig && !hasImportancePhraseInText(text)) {
+        questions.push({ field: 'warumWichtig', question: 'Warum ist dir das wichtig?' });
+    }
+    if (!obs.auswirkung && !hasImpactPhraseInText(text)) {
+        questions.push({ field: 'auswirkung', question: 'Welche Auswirkung hatte das?' });
+    }
+    if (!obs.entscheidung && !hasDecisionPhraseInText(text)) {
+        questions.push({ field: 'entscheidung', question: 'Welche Entscheidung wurde getroffen?' });
+    }
+    return questions.slice(0, 3);
+};
+
+const askMissingInfoFollowUpQuestions = (vorgang, obs, followUps) => {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('observationModal');
+        const questionEl = document.getElementById('modalQuestion');
+        const progressEl = document.getElementById('modalProgress');
+        const input = document.getElementById('modalInput');
+        const mic = document.getElementById('modalMic');
+        const modalStop = document.getElementById('modalStopRecording');
+        const speechMsg = document.getElementById('modalSpeechMessage');
+        const reactionEl = document.getElementById('modalReaction');
+        const nextBtn = document.getElementById('modalNext');
+        const cancelBtn = document.getElementById('modalCancel');
+        if (!modal || !questionEl || !progressEl || !input || !mic || !nextBtn || !cancelBtn) {
+            return resolve();
+        }
+
+        let current = 0;
+        let recognition = null;
+
+        const openModal = () => {
+            modal.style.display = 'flex';
+            updateView();
+        };
+
+        const closeModal = () => {
+            modal.style.display = 'none';
+        };
+
+        const stopRecognition = () => {
+            try {
+                if (recognition && typeof recognition.stop === 'function') recognition.stop();
+            } catch (e) {}
+            recognition = null;
+        };
+
+        const updateView = () => {
+            const currentQuestion = followUps[current];
+            questionEl.textContent = currentQuestion ? currentQuestion.question : '';
+            progressEl.textContent = `Rückfrage ${current + 1} von ${followUps.length}`;
+            input.value = '';
+            if (speechMsg) speechMsg.textContent = '';
+            if (reactionEl) reactionEl.textContent = '';
+            stopRecognition();
+            recognition = createSpeechRecognition(mic, input, speechMsg, modalStop);
+            nextBtn.disabled = false;
+        };
+
+        const cleanup = () => {
+            stopRecognition();
+            if (nextBtn) nextBtn.onclick = null;
+            if (cancelBtn) cancelBtn.onclick = null;
+        };
+
+        openModal();
+
+        cancelBtn.onclick = () => {
+            cleanup();
+            closeModal();
+            resolve();
+        };
+
+        nextBtn.onclick = () => {
+            try {
+                if (recognition && typeof recognition.stop === 'function') recognition.stop();
+            } catch (e) {}
+            const currentQuestion = followUps[current];
+            if (currentQuestion) {
+                obs[currentQuestion.field] = (input.value || '').trim();
+                updateObservationLocal(vorgang.id, obs);
+            }
+            if (current === followUps.length - 1) {
+                cleanup();
+                closeModal();
+                return resolve();
+            }
+            const reactions = [
+                'Danke.',
+                'Verstanden.',
+                'Das habe ich notiert.',
+                'Ich glaube, ich verstehe.'
+            ];
+            const pick = reactions[Math.floor(Math.random() * reactions.length)];
+            if (reactionEl) reactionEl.textContent = pick;
+            nextBtn.disabled = true;
+            setTimeout(() => {
+                current += 1;
+                updateView();
+            }, 900);
+        };
+    });
 };
 
 const showGeneratedSummary = (text, vorgang) => {
