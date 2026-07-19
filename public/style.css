@@ -36,5 +36,15 @@ textarea{min-height:140px}
 #recapStructurePreview .recap-card ul{padding-left:18px;}
 #recapStructurePreview .recap-card ul li{margin-bottom:6px;}
 #workplaceFreeArea, #workplaceGuidedArea, #workplaceModePicker, #intentCaptureArea{padding:18px;border:1px solid rgba(71,72,26,.08);border-radius:18px;background:rgba(255,255,255,.95);margin-top:18px}
+
+#vorgang-timeline{display:grid;gap:12px;}
+.timeline-item{display:grid;grid-template-columns:auto 1fr;gap:12px;padding:14px 0;border-bottom:1px solid rgba(71,72,26,.08);}
+.timeline-item:last-child{border-bottom:none;}
+.timeline-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:14px;background:rgba(123,131,50,.1);font-size:1.25rem;}
+.timeline-content{display:grid;gap:6px;}
+.timeline-meta{font-size:0.82rem;color:#666;}
+.timeline-headline{margin:0;font-size:1rem;font-weight:800;}
+.timeline-description{margin:0;color:#333;line-height:1.5;}
+@media(max-width:700px){.timeline-item{grid-template-columns:44px 1fr;}}
 @media(max-width:900px){.grid{grid-template-columns:1fr;}.card{padding:18px}.intent-card{padding:18px}.button-group{flex-direction:column;align-items:stretch}.primary, .secondary{width:100%}}
 @media(max-width:600px){.layout{margin:18px auto}.intent-card span:first-child{font-size:1.2rem}.card-head h3{font-size:1.2rem}.topbar{flex-direction:column;align-items:flex-start}.hero{flex-direction:column;align-items:flex-start}}

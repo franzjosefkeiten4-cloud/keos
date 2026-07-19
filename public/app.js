@@ -38,6 +38,103 @@ function renderVorgang(vorgang) {
         });
     };
 
+    const formatTimestamp = (value) => {
+        if (!value) return 'Kein Zeitstempel';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return 'Ungültiges Datum';
+        return date.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    };
+
+    const timelineTypeConfig = {
+        observation: { icon: '👀', title: 'Beobachtung' },
+        followup: { icon: '❓', title: 'Rückfrage' },
+        insight: { icon: '💡', title: 'Erkenntnis' },
+        decision: { icon: '✅', title: 'Entscheidung' },
+        experience: { icon: '⭐', title: 'Erfahrung' },
+        default: { icon: '🕘', title: 'Ereignis' }
+    };
+
+    const guessEventType = (item) => {
+        if (!item || typeof item !== 'object') return 'default';
+        if (item.type) return item.type;
+        if (item.titel && item.titel.toLowerCase().includes('entscheidung')) return 'decision';
+        if (item.quelle && item.quelle.toLowerCase().includes('ereignis')) return 'observation';
+        return 'observation';
+    };
+
+    const normalizeTimelineItem = (item, type, defaults = {}) => {
+        const eventType = (item && item.type) || type || guessEventType(item) || 'default';
+        return {
+            id: item && item.id ? item.id : `TL-${Math.random().toString(36).slice(2, 10)}`,
+            timestamp: item && (item.erstelltAm || item.timestamp || item.createdAt || item.datum) ? item.erstelltAm || item.timestamp || item.createdAt || item.datum : null,
+            type: eventType,
+            headline: item && (item.titel || item.headline || item.name) ? item.titel || item.headline || item.name : defaults.headline || timelineTypeConfig[eventType]?.title || 'Ereignis',
+            description: item && (item.text || item.beschreibung || item.description || item.summary) ? item.text || item.beschreibung || item.description || item.summary : defaults.description || '',
+            meta: item && item.quelle ? item.quelle : defaults.meta || ''
+        };
+    };
+
+    const buildTimelineItems = () => {
+        const localItems = loadLocal().map((item) => normalizeTimelineItem(item, item.type || 'observation', { headline: item.text || 'Beobachtung', description: item.quelle ? `Quelle: ${item.quelle}` : '' }));
+        const eventItems = (vorgang.ereignisse || []).map((item) => normalizeTimelineItem(item, 'observation', { headline: item.text || 'Beobachtung', description: item.beschreibung || item.quelle || '' }));
+        const decisionItems = (vorgang.entscheidungen || []).map((item) => normalizeTimelineItem(item, 'decision', { headline: item.titel || 'Entscheidung', description: item.status ? `Status: ${item.status}` : item.quelle || '' }));
+        const experienceItems = (vorgang.erfahrungen || []).map((item) => normalizeTimelineItem(item, 'experience', { headline: item.titel || item.text || 'Erfahrung', description: item.beschreibung || item.quelle || '' }));
+
+        return [...eventItems, ...localItems, ...decisionItems, ...experienceItems].sort((a, b) => {
+            if (a.timestamp && b.timestamp) {
+                return new Date(a.timestamp) - new Date(b.timestamp);
+            }
+            if (a.timestamp) return -1;
+            if (b.timestamp) return 1;
+            return 0;
+        });
+    };
+
+    const renderTimeline = (vorgangData) => {
+        const container = document.getElementById('vorgang-timeline');
+        if (!container) return;
+        const items = buildTimelineItems();
+        container.innerHTML = '';
+        if (!items.length) {
+            container.textContent = 'Keine Timeline-Einträge vorhanden.';
+            return;
+        }
+
+        items.forEach((item) => {
+            const entry = document.createElement('div');
+            entry.className = 'timeline-item';
+
+            const icon = document.createElement('div');
+            icon.className = 'timeline-icon';
+            icon.textContent = timelineTypeConfig[item.type]?.icon || timelineTypeConfig.default.icon;
+
+            const content = document.createElement('div');
+            content.className = 'timeline-content';
+
+            const meta = document.createElement('div');
+            meta.className = 'timeline-meta';
+            meta.textContent = `${timelineTypeConfig[item.type]?.title || timelineTypeConfig.default.title} · ${formatTimestamp(item.timestamp)}`;
+            if (item.meta) {
+                meta.textContent += ` · ${item.meta}`;
+            }
+
+            const headline = document.createElement('h5');
+            headline.className = 'timeline-headline';
+            headline.textContent = item.headline;
+
+            const description = document.createElement('p');
+            description.className = 'timeline-description';
+            description.textContent = item.description || 'Keine zusätzliche Beschreibung.';
+
+            content.appendChild(meta);
+            content.appendChild(headline);
+            content.appendChild(description);
+            entry.appendChild(icon);
+            entry.appendChild(content);
+            container.appendChild(entry);
+        });
+    };
+
     // localStorage key for this vorgang
     const localKey = `keosVorgangEvents:${vorgang.id}`;
 
@@ -66,6 +163,7 @@ function renderVorgang(vorgang) {
     renderList('vorgang-entscheidungen', vorgang.entscheidungen);
     renderList('vorgang-aktionen', vorgang.aktionen);
     renderList('vorgang-erfahrungen', vorgang.erfahrungen);
+    renderTimeline(vorgang);
 
     // Setup add-event UI (only for Ereignisse)
     const input = document.getElementById('vorgang-ereignis-input');
@@ -151,9 +249,12 @@ async function createDecisionFromEvent() {
         if (!Array.isArray(vorgang.entscheidungen)) vorgang.entscheidungen = [];
 
         const neueEntscheidung = {
+            id: `DEC-${Date.now()}`,
             titel: "Liegesituation prüfen",
             quelle: "Ereignis",
-            status: "offen"
+            status: "offen",
+            erstelltAm: new Date().toISOString(),
+            type: 'decision'
         };
 
         vorgang.entscheidungen.push(neueEntscheidung);
