@@ -322,6 +322,34 @@ const initPilotFeedback = () => {
 
 window.addEventListener('load', initPilotFeedback);
 
+let workplaceMode = 'free';
+const setWorkplaceMode = (mode) => {
+    workplaceMode = mode === 'guided' ? 'guided' : 'free';
+    const freeBtn = document.getElementById('workplaceModeFree');
+    const guidedBtn = document.getElementById('workplaceModeGuided');
+    const hint = document.getElementById('workplaceModeHint');
+    if (freeBtn && guidedBtn) {
+        if (workplaceMode === 'free') {
+            freeBtn.className = 'primary';
+            guidedBtn.className = 'secondary';
+        } else {
+            freeBtn.className = 'secondary';
+            guidedBtn.className = 'primary';
+        }
+    }
+    if (hint) {
+        if (workplaceMode === 'free') {
+            hint.textContent = 'Erzähl einfach in deinen eigenen Worten, was passiert ist. Ich höre zunächst nur zu.';
+        } else {
+            hint.textContent = 'Du antwortest erst auf Fragen. KEOS strukturiert die Beobachtung dann für dich.';
+        }
+    }
+    const startBtn = document.getElementById('startConversation');
+    if (startBtn) {
+        startBtn.textContent = workplaceMode === 'free' ? 'Ich bin fertig' : 'Gespräch beginnen';
+    }
+};
+
 // Beobachtungen: Interview und Anzeige (keine bestehenden Funktionen ändern)
 
 // --- Internes System-Log (lokal) ---
@@ -368,9 +396,26 @@ window.addEventListener('load', () => {
     const convBtn = document.getElementById('startConversation');
     const speechBtn = document.getElementById('workplaceSpeechButton');
     const workplaceInput = document.getElementById('workplaceInput');
+    const freeModeBtn = document.getElementById('workplaceModeFree');
+    const guidedModeBtn = document.getElementById('workplaceModeGuided');
+    const startBtn = document.getElementById('startConversation');
+    setWorkplaceMode('free');
+
+    if (freeModeBtn) freeModeBtn.onclick = () => {
+        setWorkplaceMode('free');
+    };
+    if (guidedModeBtn) guidedModeBtn.onclick = () => {
+        setWorkplaceMode('guided');
+    };
+
     if (convBtn) {
-        // Call the enhanced interview + confirmation flow as a starting point
         convBtn.onclick = () => {
+            if (workplaceMode === 'free') {
+                if (typeof startFreeMode === 'function') {
+                    startFreeMode();
+                    return;
+                }
+            }
             if (typeof enhancedStartObservationInterviewWithConfirmation === 'function') {
                 enhancedStartObservationInterviewWithConfirmation();
             } else if (typeof enhancedStartObservationInterview === 'function') {
@@ -384,6 +429,9 @@ window.addEventListener('load', () => {
         const workplaceMsg = document.getElementById('workplaceSpeechMessage');
         const workplaceStop = document.getElementById('workplaceStopRecording');
         createSpeechRecognition(speechBtn, workplaceInput, workplaceMsg, workplaceStop);
+    }
+    if (startBtn) {
+        startBtn.textContent = 'Ich bin fertig';
     }
 });
 const observationsKeyFor = (vorgangId) => `keosVorgangObservations:${vorgangId}`;
@@ -472,83 +520,7 @@ const startObservationInterview = () => {
                 'Was vermutest du?'
             ];
 
-            const obsBtn = document.getElementById('startObservationInterview');
             const modal = document.getElementById('observationModal');
-
-            // --- Freies Erzählen (Sprint 017) ---
-            const startFreeMode = () => {
-                return new Promise(async (resolve) => {
-                    try {
-                        const response = await fetch("../data/vorgaenge/VG-0001.json");
-                        if (!response.ok) return resolve(null);
-                        const vorgang = await response.json();
-
-                        const modal = document.getElementById('freeModal');
-                        const input = document.getElementById('freeInput');
-                        const mic = document.getElementById('freeMic');
-                        const stopBtn = document.getElementById('freeStopRecording');
-                        const msg = document.getElementById('freeSpeechMessage');
-                        const done = document.getElementById('freeDone');
-                        const cancel = document.getElementById('freeCancel');
-                        if (!modal || !input || !mic || !done || !cancel) return resolve(null);
-
-                        let recognition = null;
-
-                        const open = () => { modal.style.display = 'flex'; input.focus(); };
-                        const close = () => { modal.style.display = 'none'; };
-
-                        const stopRecognition = () => {
-                            try { if (recognition && typeof recognition.stop === 'function') recognition.stop(); } catch (e) {}
-                            recognition = null;
-                        };
-
-                        const startRec = () => {
-                            stopRecognition();
-                            recognition = createSpeechRecognition(mic, input, msg, stopBtn);
-                        };
-
-                        open();
-
-                        cancel.onclick = () => { stopRecognition(); close(); resolve(null); };
-
-                        done.onclick = async () => {
-                            stopRecognition();
-                            const text = (input.value || '').trim();
-                            if (!text) { close(); return resolve(null); }
-                            const obs = {
-                                id: `BE-${Date.now()}`,
-                                wasIstPassiert: text,
-                                warumWichtig: '',
-                                auswirkung: '',
-                                wasIstSicher: '',
-                                wasVermutestDu: '',
-                                erstelltAm: new Date().toISOString(),
-                                quelle: 'frei'
-                            };
-                            const local = loadObservationsLocal(vorgang.id);
-                            local.push(obs);
-                            saveObservationsLocal(vorgang.id, local);
-                            try { appendSystemLog('Beobachtung erstellt (frei)', vorgang.id, `Beobachtung ${obs.id} erstellt (frei)`); } catch (e) {}
-                            close(); renderBeobachtungen(vorgang);
-                            // generate recap and show confirmation like guided flow
-                            const gen = generateSummaryFromAnswers([obs.wasIstPassiert, '', '', '', '']);
-                            showGeneratedSummary(gen, vorgang);
-                            showRecapUI(vorgang, gen, obs.id);
-                            return resolve(obs);
-                        };
-
-                        // initialize recognition for the free input (user can start via mic button)
-                        startRec();
-
-                    } catch (e) {
-                        console.error('Freier Modus fehlgeschlagen', e);
-                        return resolve(null);
-                    }
-                });
-            };
-
-            const freeBtn = document.getElementById('startFreeInterview');
-            if (freeBtn) freeBtn.onclick = startFreeMode;
             const questionEl = document.getElementById('modalQuestion');
             const progressEl = document.getElementById('modalProgress');
             const input = document.getElementById('modalInput');
@@ -571,6 +543,7 @@ const startObservationInterview = () => {
                 modal.style.display = 'flex';
                 updateView();
             };
+
             const closeModal = () => {
                 modal.style.display = 'none';
             };
@@ -588,7 +561,6 @@ const startObservationInterview = () => {
                 input.value = answers[current] || '';
                 if (speechMsg) speechMsg.textContent = '';
                 if (reactionEl) reactionEl.textContent = '';
-                // init speech for this modal input
                 stopRecognition();
                 recognition = createSpeechRecognition(mic, input, speechMsg, modalStop);
                 nextBtn.disabled = false;
@@ -608,21 +580,16 @@ const startObservationInterview = () => {
             openModal();
 
             cancelBtn.onclick = () => {
-                // abort interview, do not save
                 abort();
                 return resolve(null);
             };
 
             nextBtn.onclick = () => {
-                // stop any running recognition before proceeding
                 try { if (recognition && typeof recognition.stop === 'function') recognition.stop(); } catch (e) {}
-                // store current answer
                 answers[current] = (input.value || '').trim();
-                // if last question, finalize
                 if (current === questions.length - 1) {
                     const anyNonEmpty = answers.some(a => a && a.length > 0);
                     if (!anyNonEmpty) {
-                        // nothing to save
                         cleanupHandlers(); closeModal(); return resolve(null);
                     }
                     const obs = {
@@ -642,7 +609,6 @@ const startObservationInterview = () => {
                     cleanupHandlers(); closeModal(); renderBeobachtungen(vorgang);
                     return resolve(obs);
                 }
-                // non-final: show short reaction then advance
                 const reactions = [
                     'Danke.',
                     'Verstanden.',
@@ -651,7 +617,6 @@ const startObservationInterview = () => {
                 ];
                 const pick = reactions[Math.floor(Math.random() * reactions.length)];
                 if (reactionEl) reactionEl.textContent = pick;
-                // briefly disable next to simulate natural pause
                 nextBtn.disabled = true;
                 setTimeout(() => {
                     current += 1;
@@ -661,6 +626,49 @@ const startObservationInterview = () => {
 
         } catch (e) {
             console.error('Beobachtungs-Interview fehlgeschlagen', e);
+            return resolve(null);
+        }
+    });
+};
+
+const startFreeMode = () => {
+    return new Promise(async (resolve) => {
+        try {
+            const response = await fetch("../data/vorgaenge/VG-0001.json");
+            if (!response.ok) return resolve(null);
+            const vorgang = await response.json();
+
+            const input = document.getElementById('workplaceInput');
+            const msg = document.getElementById('workplaceSpeechMessage');
+            if (!input) return resolve(null);
+
+            const text = (input.value || '').trim();
+            if (!text) {
+                if (msg) msg.textContent = 'Bitte erzähle zuerst etwas, bevor du fertig bist.';
+                return resolve(null);
+            }
+
+            const obs = {
+                id: `BE-${Date.now()}`,
+                wasIstPassiert: text,
+                warumWichtig: '',
+                auswirkung: '',
+                wasIstSicher: '',
+                wasVermutestDu: '',
+                erstelltAm: new Date().toISOString(),
+                quelle: 'frei'
+            };
+            const local = loadObservationsLocal(vorgang.id);
+            local.push(obs);
+            saveObservationsLocal(vorgang.id, local);
+            try { appendSystemLog('Beobachtung erstellt (frei)', vorgang.id, `Beobachtung ${obs.id} erstellt (frei)`); } catch (e) {}
+            renderBeobachtungen(vorgang);
+            const gen = generateSummaryFromAnswers([obs.wasIstPassiert, '', '', '', '']);
+            showGeneratedSummary(gen, vorgang);
+            showRecapUI(vorgang, gen, obs.id);
+            return resolve(obs);
+        } catch (e) {
+            console.error('Freier Modus fehlgeschlagen', e);
             return resolve(null);
         }
     });

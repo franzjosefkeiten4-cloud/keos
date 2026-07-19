@@ -32,6 +32,11 @@
         <div class="card-head"><h3>Arbeitsbereich</h3></div>
         <div>
           <p class="eyebrow">Erzähl mir einfach, was heute passiert ist.</p>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+            <button id="workplaceModeFree" class="primary" type="button">Freies Erzählen</button>
+            <button id="workplaceModeGuided" class="secondary" type="button">Geführtes Interview</button>
+          </div>
+          <div id="workplaceModeHint" style="margin-top:8px;font-size:0.95rem;color:#444;">Erzähl einfach in deinen eigenen Worten, was passiert ist. Ich höre zunächst nur zu.</div>
           <textarea id="workplaceInput" rows="8" style="width:100%;border:1px solid rgba(71,72,26,.12);border-radius:12px;padding:12px;margin-top:8px;"></textarea>
           <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
             <button id="workplaceSpeechButton" class="secondary" type="button">🎙️</button>
@@ -60,9 +65,9 @@
             <article class="card">
               <div class="card-head"><h4>Beobachtungen</h4></div>
               <div id="vorgang-beobachtungen">Keine Einträge vorhanden.</div>
+              <p style="margin-top:8px;font-size:0.95rem;color:#444;">Erzähl einfach in deinen eigenen Worten, was passiert ist. Ich höre zunächst nur zu.</p>
               <div style="margin-top:8px; display:flex; gap:8px;">
                 <button id="startObservationInterview" class="primary">Geführtes Interview</button>
-                <button id="startFreeInterview" class="secondary">Freies Erzählen</button>
               </div>
               <div id="beobachtung-summary" style="margin-top:8px;">
                 <h5>Vorgangszusammenfassung</h5>
@@ -205,27 +210,5 @@
     </div>
   </div>
 
-  <!-- Free Narration Modal -->
-  <div id="freeModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.35);z-index:1003;align-items:center;justify-content:center;padding:20px;">
-    <div style="background:#fff;max-width:840px;width:100%;border-radius:16px;padding:20px;box-shadow:0 20px 50px rgba(0,0,0,0.2);">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <h3 id="freeTitle" style="margin:0;">Freies Erzählen</h3>
-        <div id="freeProgress">Freier Modus</div>
-      </div>
-      <p style="font-weight:700;margin-top:12px;">Erzähle frei — ich schreibe mit.</p>
-      <div style="display:flex;gap:8px;align-items:flex-start;margin-top:8px;">
-        <textarea id="freeInput" rows="10" style="flex:1;border:1px solid rgba(71,72,26,.12);border-radius:8px;padding:10px;"></textarea>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          <button id="freeMic" class="secondary" type="button">🎙️</button>
-          <button id="freeStopRecording" class="secondary" type="button" style="display:none;">Aufnahme beenden</button>
-        </div>
-      </div>
-      <div id="freeSpeechMessage" style="margin-top:8px;font-size:0.9rem;color:#555;"></div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
-        <button id="freeCancel" class="secondary">Abbrechen</button>
-        <button id="freeDone" class="primary">Ich bin fertig</button>
-      </div>
-    </div>
-  </div>
 </body>
 </html>
