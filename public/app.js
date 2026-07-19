@@ -5,41 +5,46 @@ function buildVorgangFocus(vorgang) {
     const hasEvents = Array.isArray(vorgang.ereignisse) && vorgang.ereignisse.length > 0;
     const hasDecisions = Array.isArray(vorgang.entscheidungen) && vorgang.entscheidungen.length > 0;
     const priority = Number(vorgang.prioritaet || 0);
+    const originals = Array.isArray(vorgang.beobachtungen) ? vorgang.beobachtungen : [];
+    let local = [];
+    try {
+        const raw = localStorage.getItem(observationsKeyFor(vorgang.id));
+        local = raw ? JSON.parse(raw) : [];
+    } catch (e) {
+        local = [];
+    }
+    const allObservations = originals.concat(Array.isArray(local) ? local : []);
+    const openEntries = allObservations.filter(obs => !isProcessedEntry(obs));
 
     let recommendation = 'Dokumentiere den ersten nächsten Schritt für diesen Vorgang.';
     let reason = 'Der Vorgang enthält derzeit keine klaren Hinweise für den nächsten Schritt.';
     let primaryAction = 'Jetzt erledigen';
     let secondaryAction = 'Anderen Schritt wählen';
 
-    if (status === 'offen') {
-        recommendation = 'Kundenfall bewerten und nächsten Schritt festlegen.';
-        reason = 'Der Vorgang ist offen und benötigt eine erste Handlung.';
+    if (openEntries.length === 0) {
+        recommendation = 'Keine offenen Eingänge mehr vorhanden. Vorgang abschließen oder dokumentieren.';
+        reason = 'Der Vorgang ist aktuell auf dem neuesten Stand und wartet nur noch auf Abschluss.';
+    } else if (openEntries.length === 1) {
+        const entry = openEntries[0];
+        recommendation = 'Eingang abschließen und als verarbeitet markieren.';
+        reason = `Ein offener Eingang wartet noch auf Abschluss: ${summarizeText(getObservationSummary(entry), 100)}`;
+    } else {
+        recommendation = `Noch ${openEntries.length} offene Eingänge prüfen und abschließen.`;
+        reason = 'Mehrere Eingänge sind offen. Schließe den nächsten Eingang ab, um den Vorgang voranzubringen.';
+    }
 
-        if (priority >= 80) {
-            recommendation = 'Kundenanfrage sofort beantworten.';
-            reason = 'Hohe Priorität erfordert zügiges Handeln.';
-        }
+    if (status === 'offen' && openEntries.length > 0) {
+        primaryAction = 'Eingang abschließen';
+    }
 
-        if (!hasEvents && !hasDecisions) {
-            recommendation = 'Fall prüfen und offenen Schritt festlegen.';
-            reason = 'Es gibt bisher keine Beobachtungen oder Entscheidungen im Vorgang.';
-        }
-
-        if (hasEvents && !hasDecisions) {
-            recommendation = 'Vorhandene Ereignisse bewerten und Entscheidung vorbereiten.';
-            reason = 'Es liegen Beobachtungen vor, aber noch keine Entscheidung.';
-        }
-
-        if (hasDecisions) {
-            recommendation = 'Offene Entscheidung prüfen und Umsetzung planen.';
-            reason = 'Es existiert bereits eine Entscheidung, jetzt geht es um die nächste Ausführung.';
-        }
-    } else if (status === 'geschlossen') {
+    if (status === 'geschlossen' && openEntries.length === 0) {
         recommendation = 'Vorgang überprüfen und abschließen.';
-        reason = 'Der Vorgang ist als geschlossen markiert und sollte final dokumentiert werden.';
-    } else if (status) {
-        recommendation = 'Vorgangsdaten prüfen und nächsten Schritt festlegen.';
-        reason = `Status: ${vorgang.status}. So verschaffst du dir einen klaren nächsten Schritt.`;
+        reason = 'Es liegen keine offenen Eingänge mehr vor. Du kannst den Vorgang finalisieren.';
+    }
+
+    if (status === 'offen' && openEntries.length === 0) {
+        recommendation = 'Vorgang prüfen und nächste Entscheidung treffen.';
+        reason = 'Es sind keine offenen Eingänge mehr vorhanden; der Fokus liegt auf der nächsten Aufgabe im Vorgang.';
     }
 
     return {
@@ -1449,7 +1454,7 @@ const renderProposal = (vorgang) => {
             proposal.documented = false;
             saveProposalLocal(vorgang.id, proposal);
             renderProposal(vorgang);
-            collapseAnalysisBlock('Arbeitsvorschlag übernommen');
+            completeProposalLifecycle(vorgang, 'Arbeitsvorschlag übernommen', 'Arbeitsvorschlag übernommen');
         };
     }
 
@@ -1460,7 +1465,7 @@ const renderProposal = (vorgang) => {
             proposal.accepted = false;
             saveProposalLocal(vorgang.id, proposal);
             renderProposal(vorgang);
-            collapseAnalysisBlock('Dokumentiert');
+            completeProposalLifecycle(vorgang, 'Dokumentiert', 'Nur dokumentiert');
         };
     }
 
@@ -1475,7 +1480,7 @@ const renderProposal = (vorgang) => {
             proposal.documented = false;
             saveProposalLocal(vorgang.id, proposal);
             renderProposal(vorgang);
-            collapseAnalysisBlock('Bearbeitet übernommen');
+            completeProposalLifecycle(vorgang, 'Bearbeitet übernommen', 'Bearbeitet übernommen');
         };
     }
 
@@ -1484,6 +1489,54 @@ const renderProposal = (vorgang) => {
             if (editor) editor.style.display = 'none';
             if (actions) actions.style.display = 'flex';
         };
+    }
+};
+
+const findFirstOpenObservation = (vorgang) => {
+    const originals = Array.isArray(vorgang.beobachtungen) ? vorgang.beobachtungen : [];
+    let local = [];
+    try {
+        const raw = localStorage.getItem(observationsKeyFor(vorgang.id));
+        local = raw ? JSON.parse(raw) : [];
+    } catch (e) {
+        local = [];
+    }
+    const merged = originals.concat(Array.isArray(local) ? local : []);
+    return merged.find(obs => !isProcessedEntry(obs));
+};
+
+const completeObservationLifecycle = (vorgang, obs, reason) => {
+    if (!vorgang || !obs) return;
+    obs.processedAt = new Date().toISOString();
+    obs.processedBy = DEFAULT_OBSERVATION_USER;
+    obs.processedReason = reason;
+    obs.status = 'processed';
+
+    const originals = Array.isArray(vorgang.beobachtungen) ? vorgang.beobachtungen : [];
+    const local = loadObservationsLocal(vorgang.id);
+    const originalIndex = originals.findIndex(item => item.id === obs.id);
+    const localIndex = local.findIndex(item => item.id === obs.id);
+
+    if (originalIndex >= 0) {
+        originals[originalIndex] = obs;
+    } else if (localIndex >= 0) {
+        local[localIndex] = obs;
+        saveObservationsLocal(vorgang.id, local);
+    } else {
+        local.push(obs);
+        saveObservationsLocal(vorgang.id, local);
+    }
+};
+
+const completeProposalLifecycle = (vorgang, completionText, processReason) => {
+    collapseAnalysisBlock(completionText);
+    const obs = findFirstOpenObservation(vorgang);
+    if (obs) {
+        completeObservationLifecycle(vorgang, obs, processReason);
+    }
+    if (currentVorgang && currentVorgang.id === vorgang.id) {
+        renderBeobachtungen(vorgang);
+        renderVorgang(vorgang);
     }
 };
 
