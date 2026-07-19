@@ -31,19 +31,28 @@
       <article class="card">
         <div class="card-head"><h3>Arbeitsbereich</h3></div>
         <div>
-          <p class="eyebrow">Erzähl mir einfach, was heute passiert ist.</p>
-          <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+          <p class="eyebrow">Wie möchtest du beginnen?</p>
+          <div id="workplaceModeSelection" style="display:flex;gap:8px;align-items:center;margin-top:8px;">
             <button id="workplaceModeFree" class="primary" type="button">Freies Erzählen</button>
             <button id="workplaceModeGuided" class="secondary" type="button">Geführtes Interview</button>
           </div>
-          <div id="workplaceModeHint" style="margin-top:8px;font-size:0.95rem;color:#444;">Erzähl einfach in deinen eigenen Worten, was passiert ist. Ich höre zunächst nur zu.</div>
-          <textarea id="workplaceInput" rows="8" style="width:100%;border:1px solid rgba(71,72,26,.12);border-radius:12px;padding:12px;margin-top:8px;"></textarea>
-          <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
-            <button id="workplaceSpeechButton" class="secondary" type="button">🎙️</button>
-            <button id="workplaceStopRecording" class="secondary" type="button" style="display:none;">Aufnahme beenden</button>
-            <button id="startConversation" class="primary">Gespräch beginnen</button>
+          <div id="workplaceModeHint" style="margin-top:8px;font-size:0.95rem;color:#444;">Wähle einen Modus, um mit deiner Beobachtung zu beginnen.</div>
+
+          <div id="workplaceFreeArea" style="display:none;margin-top:16px;">
+            <p style="margin:0 0 8px 0;">Erzähle einfach in deinen eigenen Worten. Ich höre zunächst nur zu.</p>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+              <button id="workplaceSpeechButton" class="secondary" type="button">Mikrofon starten</button>
+              <button id="workplaceStopRecording" class="secondary" type="button" style="display:none;">Aufnahme beenden</button>
+            </div>
+            <textarea id="workplaceInput" rows="8" style="width:100%;border:1px solid rgba(71,72,26,.12);border-radius:12px;padding:12px;margin-bottom:8px;display:block;"></textarea>
+            <button id="workplaceFinish" class="primary" type="button">Ich bin fertig</button>
+            <div id="workplaceSpeechMessage" style="margin-top:6px;font-size:0.9rem;color:#555;"></div>
           </div>
-          <div id="workplaceSpeechMessage" style="margin-top:6px;font-size:0.9rem;color:#555;"></div>
+
+          <div id="workplaceGuidedArea" style="display:none;margin-top:16px;">
+            <p style="margin:0 0 8px 0;">Ich stelle dir einige Fragen und strukturiere deine Beobachtung.</p>
+            <button id="workplaceStartInterview" class="primary" type="button">Interview starten</button>
+          </div>
         </div>
       </article>
       <article class="card">

@@ -322,34 +322,30 @@ const initPilotFeedback = () => {
 
 window.addEventListener('load', initPilotFeedback);
 
-let workplaceMode = 'free';
+let workplaceMode = null;
 const setWorkplaceMode = (mode) => {
-    workplaceMode = mode === 'guided' ? 'guided' : 'free';
+    workplaceMode = mode === 'guided' ? 'guided' : mode === 'free' ? 'free' : null;
     const freeBtn = document.getElementById('workplaceModeFree');
     const guidedBtn = document.getElementById('workplaceModeGuided');
     const hint = document.getElementById('workplaceModeHint');
+    const freeArea = document.getElementById('workplaceFreeArea');
+    const guidedArea = document.getElementById('workplaceGuidedArea');
+
     if (freeBtn && guidedBtn) {
         if (workplaceMode === 'free') {
             freeBtn.className = 'primary';
             guidedBtn.className = 'secondary';
-        } else {
+        } else if (workplaceMode === 'guided') {
             freeBtn.className = 'secondary';
             guidedBtn.className = 'primary';
+        } else {
+            freeBtn.className = 'secondary';
+            guidedBtn.className = 'secondary';
         }
     }
     if (hint) {
         if (workplaceMode === 'free') {
-            hint.textContent = 'Erzähl einfach in deinen eigenen Worten, was passiert ist. Ich höre zunächst nur zu.';
-        } else {
-            hint.textContent = 'Du antwortest erst auf Fragen. KEOS strukturiert die Beobachtung dann für dich.';
-        }
-    }
-    const startBtn = document.getElementById('startConversation');
-    if (startBtn) {
-        startBtn.textContent = workplaceMode === 'free' ? 'Ich bin fertig' : 'Gespräch beginnen';
-    }
-};
-
+            hint.textContent = 'Freies Erzählen: Mikrofon starten oder tippen und dann 
 // Beobachtungen: Interview und Anzeige (keine bestehenden Funktionen ändern)
 
 // --- Internes System-Log (lokal) ---
