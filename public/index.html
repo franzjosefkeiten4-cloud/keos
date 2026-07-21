@@ -109,9 +109,15 @@
           <div class="focus-card-recommendation">Lade Empfehlung …</div>
         </div>
         <div id="loadedVorgang" class="vorgang-details">
+          <p><strong>Vorgang-ID:</strong> <span id="vorgang-id"></span></p>
           <p><strong>Titel:</strong> <span id="vorgang-titel"></span></p>
+          <p><strong>Erstellt am:</strong> <span id="vorgang-erstelltam"></span></p>
+          <p><strong>Typ:</strong> <span id="vorgang-typ"></span></p>
           <p><strong>Status:</strong> <span id="vorgang-status"></span></p>
           <p><strong>Priorität:</strong> <span id="vorgang-prioritaet"></span></p>
+          <p><strong>Rohtext:</strong> <span id="vorgang-rohtext"></span></p>
+          <p><strong>Zusammenfassung:</strong> <span id="vorgang-zusammenfassung"></span></p>
+          <p><strong>Nächster Schritt:</strong> <span id="vorgang-next-step"></span></p>
           <p><strong>Kontext:</strong> <span id="vorgang-kontext"></span></p>
           <p><strong>Verantwortlich:</strong> <span id="vorgang-verantwortlich"></span></p>
         </div>
@@ -191,15 +197,16 @@
                 <h5>Rekapitulation</h5>
                 <div id="recapText">-</div>
                 <div id="recapStructurePreview" class="recap-structure-grid"></div>
-                <p id="recapQuestion">Habe ich dich richtig verstanden, dass ...?</p>
+                <p id="recapQuestion">Habe ich dich richtig verstanden?</p>
                 <div id="recapActions">
-                  <button id="recapYes" class="primary">Ja, richtig verstanden</button>
-                  <button id="recapNo" class="secondary">Nein, korrigieren</button>
+                  <button id="recapYes" class="primary">Ja, genau so.</button>
+                  <button id="recapPartial" class="secondary">Teilweise - ich möchte etwas korrigieren oder ergänzen.</button>
+                  <button id="recapNo" class="secondary">Nein, das habe ich nicht gemeint.</button>
                 </div>
                 <div id="recapCorrection" style="margin-top:8px; display:none;">
-                  <textarea id="recapCorrectionInput" rows="3" style="width:100%;" placeholder="Was habe ich falsch oder unvollständig verstanden?"></textarea>
+                  <textarea id="recapCorrectionInput" rows="3" style="width:100%;" placeholder="Welcher Teil stimmt bereits, und was soll ich anders verstehen?"></textarea>
                   <div style="margin-top:8px;">
-                    <button id="recapSendCorrection" class="primary">Senden Korrektur</button>
+                    <button id="recapSendCorrection" class="primary">Korrektur senden</button>
                     <button id="recapCancelCorrection" class="secondary">Abbrechen</button>
                   </div>
                 </div>
@@ -319,6 +326,13 @@
         </div>
       </div>
       <div id="modalSpeechMessage" style="margin-top:8px;font-size:0.9rem;color:#555;"></div>
+      <div id="modalAnswerClarity" style="margin-top:8px;font-size:0.95rem;color:#7a4b00;display:none;"></div>
+      <div id="modalAnswerActions" style="display:none;gap:8px;flex-wrap:wrap;margin-top:10px;">
+        <button id="modalAnswerEdit" class="secondary" type="button">Antwort ergänzen</button>
+        <button id="modalAnswerRedo" class="secondary" type="button">Antwort neu aufnehmen</button>
+        <button id="modalAnswerSkip" class="secondary" type="button">Frage überspringen</button>
+        <button id="modalAnswerUnclear" class="secondary" type="button">Als unklar speichern</button>
+      </div>
       <div id="modalReaction" style="margin-top:6px;font-size:1rem;font-weight:600;color:#222;min-height:22px;"></div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
         <button id="modalCancel" class="secondary">Abbrechen</button>
