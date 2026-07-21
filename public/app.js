@@ -187,6 +187,7 @@ const isFragmentLike = (value) => {
     const text = normalizeAnswerText(value).toLowerCase();
     if (!text) return true;
     if (['und du', 'und', 'du', 'ich weiß nicht', 'müller müllers ich', 'müller müller ich'].includes(text)) return true;
+    if (/\b(weiß ich nicht|weiss ich nicht|nicht genau|keine ahnung|keine ahnung genau|irgendwie|gerade nicht|kann ich gerade nicht|kann ich nicht sagen|weiß ich nicht genau|weiss ich nicht genau)\b/i.test(text)) return true;
     if (/^[\p{L}\s'-]+$/u.test(text) && countWords(text) <= 1) return true;
     if (countWords(text) <= 3 && !/\b(ist|war|sind|hat|haben|macht|macht|führt|zeigt|braucht|bleibt|geht|ging|passt|lief|läuft|passiert|geschrieben|diktiert|eingegeben|ergänzt|getippt|gesprochen)\b/i.test(text)) {
         return true;
@@ -1947,6 +1948,7 @@ const startFreeMode = () => {
             if (!input) return resolve(null);
 
             setWorkplacePendingState();
+            hideVorgangReifeCard();
             await speechController.stopActive();
             setWorkplacePendingState();
             const text = (input.value || '').trim();
@@ -2009,6 +2011,7 @@ const startFreeMode = () => {
                     input.value = (recapResult && recapResult.restartText) ? recapResult.restartText : '';
                     input.focus();
                 }
+                hideVorgangReifeCard();
                 renderBeobachtungen(editableVorgang);
                 resetWorkplacePendingState();
                 return resolve(null);
@@ -2019,18 +2022,42 @@ const startFreeMode = () => {
 
             const maxClarificationRounds = 3;
             for (let round = 0; round < maxClarificationRounds; round += 1) {
-                const nextFollowUp = selectNextClarificationQuestion(activeObservation);
-                if (!nextFollowUp) break;
+                const handlungscheck = pruefeBeobachtungHandlungsreife(activeObservation);
+                activeObservation.handlungsreife = {
+                    handlungsreif: handlungscheck.handlungsreif,
+                    begruendung: handlungscheck.begruendung,
+                    rueckfrage: handlungscheck.rueckfrage,
+                    geprueftAm: new Date().toISOString()
+                };
+                updateObservationLocal(editableVorgang.id, activeObservation);
+
+                if (handlungscheck.handlungsreif || !handlungscheck.rueckfrage || !handlungscheck.rueckfrageFeld) break;
+                const nextFollowUp = { field: handlungscheck.rueckfrageFeld, question: handlungscheck.rueckfrage };
                 await askMissingInfoFollowUpQuestions(editableVorgang, activeObservation, [nextFollowUp]);
                 const refreshed = loadObservationsLocal(editableVorgang.id);
                 activeObservation = refreshed.find((item) => item.id === obs.id) || activeObservation;
             }
 
-            const remainingFollowUp = selectNextClarificationQuestion(activeObservation);
-            if (remainingFollowUp) {
-                if (msg) msg.textContent = 'Ich habe noch nicht genügend belastbare Informationen, um sicher weiterzuverarbeiten.';
+            const finalCheck = pruefeBeobachtungHandlungsreife(activeObservation);
+            activeObservation.handlungsreife = {
+                handlungsreif: finalCheck.handlungsreif,
+                begruendung: finalCheck.begruendung,
+                rueckfrage: finalCheck.rueckfrage,
+                geprueftAm: new Date().toISOString()
+            };
+            if (!finalCheck.handlungsreif && getClarificationQuestionCount(activeObservation) >= 3) {
+                activeObservation.verbleibenderKlaerungsbedarf = finalCheck.begruendung;
+            } else {
+                activeObservation.verbleibenderKlaerungsbedarf = '';
+            }
+            updateObservationLocal(editableVorgang.id, activeObservation);
+
+            if (finalCheck.handlungsreif && msg) {
+                msg.textContent = 'Danke. Ich habe genügend Informationen, um die Beobachtung weiterzuverarbeiten.';
+                showVorgangReifeCard(editableVorgang, activeObservation, finalCheck);
             } else if (msg) {
-                msg.textContent = 'Danke. Ich habe jetzt genügend Informationen, um den Vorgang weiterzuführen.';
+                msg.textContent = 'Danke. Ich habe die Beobachtung erfasst und verbleibenden Klärungsbedarf intern markiert.';
+                hideVorgangReifeCard();
             }
             renderBeobachtungen(editableVorgang);
             const gen = buildObservationSummaryText(activeObservation);
@@ -2409,6 +2436,26 @@ const hasDecisionPhraseInText = (text) => {
     return /\b(entschieden|beschlossen|wir haben|ich habe|ich werde|wir werden|entscheiden|Entscheidung|Beschluss|vorgesehen|geplant|veranlasst|sollte)\b/i.test(text);
 };
 
+const hasOperationalDisruptionInText = (text) => {
+    return /\b(störung|stoerung|funktioniert nicht|fällt aus|faellt aus|blockiert|unterbrochen|abweichung|fehler|reklamation|stillstand|nacharbeit|doppelte arbeit|widersprüchlich|widerspruechlich|verwechselt|falsch abgelegt|beschädigt|beschädigte|beschädigten|angeliefert|verspätet|verspätung|zu spät|zu spaet|geräusch|geräusche|ungewöhnlich|rutschgefahr|abgestürzt|abstürzt|stürzt ab|stuerzt ab|springt zurück|springt zurueck|gehen verloren|geht verloren|verloren)\b/i.test(text);
+};
+
+const hasSoftwareContextInText = (text) => {
+    return /\b(software|system|anwendung|programm|app|portal|maske|seite)\b/i.test(text);
+};
+
+const hasRepetitionPhraseInText = (text) => {
+    return /\b(häufig|haeufig|immer wieder|wiederholt|ständig|staendig|regelmäßig|regelmaessig|täglich|taeglich|seit tagen|mehrfach)\b/i.test(text);
+};
+
+const hasImprovementHintInText = (text) => {
+    return /\b(verbessern|optimieren|vereinfachen|untersuchen|prüfen|pruefen|klären|klaeren|anpassen|vermeiden)\b/i.test(text);
+};
+
+const hasDocumentableEventInText = (text) => {
+    return /\b(heute|gestern|morgen|beim termin|bei der auslieferung|im gespräch|im gespraech|im lager|in der werkstatt|im büro|im buero)\b/i.test(text);
+};
+
 const getClarificationQuestionCount = (obs) => Number(obs?.clarificationQuestionCount || 0);
 
 const getClarificationQuestionHistory = (obs) => {
@@ -2442,7 +2489,8 @@ const hasClearWhatHappened = (obs) => {
     const direct = obs?.answers?.whatHappened;
     if (direct && direct.status === 'valid' && isMeaningfulClarificationText(direct.value)) return true;
     const text = getObservationNarrativeText(obs);
-    return isMeaningfulClarificationText(text) && !isFragmentLike(text) && /[.!?]|\b(ist|war|sind|hat|haben|liegt|liegen|führt|verursacht|verliert|verlieren|verloren|passt|dauert|fehlt|fehlen|zeigt|braucht|muss|müssen|soll|sollen|passiert)\b/i.test(text);
+    if (!isMeaningfulClarificationText(text) || isFragmentLike(text)) return false;
+    return hasOperationalDisruptionInText(text) || hasImpactPhraseInText(text);
 };
 
 const hasClearWhyOrImpact = (obs) => {
@@ -2460,27 +2508,93 @@ const hasClearAffected = (obs) => {
     return (affected && affected.status === 'valid' && isMeaningfulClarificationText(affected.value)) || hasAffectedEntityInText(text);
 };
 
-const selectNextClarificationQuestion = (obs) => {
-    if (!obs) return null;
-    if (getClarificationQuestionCount(obs) >= 3) return null;
+const hasClearReferencePoint = (obs) => {
+    const text = getObservationNarrativeText(obs);
+    if (!text) return false;
+    if (hasAffectedEntityInText(text)) return true;
+    return /\b(werkstatt|lager|büro|buero|beratung|nachbetreuung|lieferung|montage|fertigung|endkontrolle|arbeitsschritt|prozess|ablauf|termin)\b/i.test(text);
+};
 
+const getHandlungsreifeSignal = (obs) => {
+    const text = getObservationNarrativeText(obs);
+    return {
+        konkret: hasClearWhatHappened(obs),
+        stoerung: hasOperationalDisruptionInText(text),
+        auswirkungOderGefahr: hasClearWhyOrImpact(obs) || hasImpactPhraseInText(text),
+        wiederholung: hasRepetitionPhraseInText(text),
+        verbesserungsansatz: hasImprovementHintInText(text),
+        dokumentationswuerdig: hasDocumentableEventInText(text)
+    };
+};
+
+const waehleRueckfrageBeiUnklarheit = (obs, signal) => {
     const history = new Set(getClarificationQuestionHistory(obs));
-    const concreteClear = hasClearWhatHappened(obs);
-    const meaningClear = hasClearWhyOrImpact(obs);
-
-    if (!concreteClear && !history.has('whatHappened')) {
-        return { field: 'whatHappened', question: 'Was ist konkret passiert?' };
+    if (!signal.konkret) {
+        const text = getObservationNarrativeText(obs);
+        if (hasSoftwareContextInText(text) && !history.has('whatHappened')) {
+            return { field: 'whatHappened', question: 'Was genau passiert bei der Arbeit mit der Software?' };
+        }
+        if (!history.has('whatHappened')) return { field: 'whatHappened', question: 'Was genau ist passiert?' };
+        if (!history.has('impact')) return { field: 'impact', question: 'Was funktioniert dabei nicht?' };
+        return { field: 'impact', question: 'Woran merkst du das konkret?' };
     }
 
-    if (concreteClear && !meaningClear && !history.has('whyImportant')) {
-        return { field: 'whyImportant', question: 'Warum ist das wichtig?' };
+    if (!signal.auswirkungOderGefahr) {
+        if (!history.has('whyImportant')) return { field: 'whyImportant', question: 'Welche Auswirkung hat das im Arbeitsalltag?' };
+        if (!history.has('impact')) return { field: 'impact', question: 'Wozu führt das konkret?' };
     }
 
-    if (concreteClear && !meaningClear && history.has('whyImportant') && !history.has('impact')) {
-        return { field: 'impact', question: 'Welche Auswirkung hat das?' };
+    if (!hasClearReferencePoint(obs) && !history.has('affected')) {
+        return { field: 'affected', question: 'Auf welchen Arbeitsschritt bezieht sich deine Beobachtung?' };
     }
 
     return null;
+};
+
+const pruefeBeobachtungHandlungsreife = (obs) => {
+    if (!obs) {
+        return {
+            handlungsreif: false,
+            begruendung: 'Keine verwertbare Beobachtung vorhanden.',
+            rueckfrage: 'Was genau ist passiert?',
+            rueckfrageFeld: 'whatHappened'
+        };
+    }
+
+    if (getClarificationQuestionCount(obs) >= 3) {
+        return {
+            handlungsreif: false,
+            begruendung: 'Maximale Anzahl an Rückfragen erreicht; verbleibender Klärungsbedarf wird intern vermerkt.',
+            rueckfrage: null,
+            rueckfrageFeld: null
+        };
+    }
+
+    const signal = getHandlungsreifeSignal(obs);
+    const handlungsreif = signal.konkret || signal.stoerung || signal.auswirkungOderGefahr || signal.wiederholung || signal.verbesserungsansatz || signal.dokumentationswuerdig;
+
+    if (handlungsreif) {
+        return {
+            handlungsreif: true,
+            begruendung: 'Die Beobachtung ist ausreichend konkret oder zeigt eine verwertbare betriebliche Relevanz.',
+            rueckfrage: null,
+            rueckfrageFeld: null
+        };
+    }
+
+    const rueckfrage = waehleRueckfrageBeiUnklarheit(obs, signal);
+    return {
+        handlungsreif: false,
+        begruendung: 'Die Beobachtung ist noch zu allgemein oder mehrdeutig für die Weiterverarbeitung.',
+        rueckfrage: rueckfrage ? rueckfrage.question : null,
+        rueckfrageFeld: rueckfrage ? rueckfrage.field : null
+    };
+};
+
+const selectNextClarificationQuestion = (obs) => {
+    const entscheidung = pruefeBeobachtungHandlungsreife(obs);
+    if (!entscheidung || entscheidung.handlungsreif || !entscheidung.rueckfrage || !entscheidung.rueckfrageFeld) return null;
+    return { field: entscheidung.rueckfrageFeld, question: entscheidung.rueckfrage };
 };
 
 const askMissingInfoFollowUpQuestions = (vorgang, obs, followUps) => {
@@ -2597,50 +2711,15 @@ const askMissingInfoFollowUpQuestions = (vorgang, obs, followUps) => {
                 obs.currentClarificationQuestion = '';
                 updateObservationLocal(vorgang.id, obs);
                 if (classification.needsReview) {
-                    nextBtn.disabled = true;
-                    clarifyPrompt.show({
-                        message: 'Ich bin noch nicht sicher, ob ich deine Antwort richtig einordnen kann. Kannst du das bitte noch etwas genauer beschreiben?',
-                        onEdit: () => {
-                            nextBtn.disabled = false;
-                            input.focus();
-                        },
-                        onRedo: () => {
-                            input.value = '';
-                            if (questionSpeechSession) {
-                                questionSpeechSession.manualEdited = false;
-                                questionSpeechSession.hadSpeech = false;
-                                questionSpeechSession.lastSource = 'unknown';
-                            }
-                            nextBtn.disabled = false;
-                            setTimeout(() => mic.click(), 0);
-                        },
-                        onSkip: () => {
-                            obs[currentQuestion.field] = '';
-                            if (!obs.answers) obs.answers = createAnswerState();
-                            obs.answers[currentQuestion.field] = createAnswerRecord('', 'keyboard', 'unanswered');
-                            obs.currentClarificationField = '';
-                            obs.currentClarificationQuestion = '';
-                            updateObservationLocal(vorgang.id, obs);
-                            if (current === followUps.length - 1) {
-                                finishFollowUps();
-                                return;
-                            }
-                            goNext();
-                        },
-                        onMarkUnclear: () => {
-                            if (!obs.answers) obs.answers = createAnswerState();
-                            obs.answers[currentQuestion.field] = { ...classification, status: 'unclear', needsReview: true };
-                            obs.currentClarificationField = '';
-                            obs.currentClarificationQuestion = '';
-                            updateObservationLocal(vorgang.id, obs);
-                            if (current === followUps.length - 1) {
-                                finishFollowUps();
-                                return;
-                            }
-                            goNext();
-                        }
-                    });
-                    return;
+                    if (!obs.answers) obs.answers = createAnswerState();
+                    obs.answers[currentQuestion.field] = { ...classification, status: 'unclear', needsReview: true };
+                    obs.currentClarificationField = '';
+                    obs.currentClarificationQuestion = '';
+                    updateObservationLocal(vorgang.id, obs);
+                    if (current === followUps.length - 1) {
+                        return finishFollowUps();
+                    }
+                    return goNext();
                 }
             }
             await speechController.stopActive();
@@ -3029,6 +3108,64 @@ const showObservationCompletion = (vorgang, obs) => {
 const hideObservationCompletion = () => {
     const card = document.getElementById('observationCompletionCard');
     if (card) card.style.display = 'none';
+};
+
+const hideVorgangReifeCard = () => {
+    const card = document.getElementById('vorgangReifeCard');
+    const messageEl = document.getElementById('vorgangReifeSpeicherMeldung');
+    if (card) card.style.display = 'none';
+    if (messageEl) messageEl.textContent = '';
+};
+
+const showVorgangReifeCard = (vorgang, obs, handlungscheck) => {
+    const card = document.getElementById('vorgangReifeCard');
+    const titleEl = document.getElementById('vorgangReifeTitel');
+    const summaryEl = document.getElementById('vorgangReifeZusammenfassung');
+    const statusEl = document.getElementById('vorgangReifeStatus');
+    const nextStepEl = document.getElementById('vorgangReifeNaechsterSchritt');
+    const saveBtn = document.getElementById('vorgangSpeichernButton');
+    const messageEl = document.getElementById('vorgangReifeSpeicherMeldung');
+    if (!card || !titleEl || !summaryEl || !statusEl || !nextStepEl || !saveBtn || !messageEl) return;
+
+    const titel = String(obs?.titel || generateShortObservationTitle(obs || {})).trim() || 'Beobachtung';
+    const hasStructuredAnswers = Object.values(obs?.answers || {}).some((answer) => answer && answer.status === 'valid' && answer.value);
+    const zusammenfassung = String(
+        (hasStructuredAnswers ? buildObservationSummaryText(obs || {}) : '')
+        || (obs && obs.understanding && obs.understanding.confirmed)
+        || (obs && obs.confirmedText)
+        || (obs && obs.zusammenfassung)
+        || buildObservationSummaryText(obs || {})
+        || ''
+    ).trim();
+
+    titleEl.textContent = titel;
+    summaryEl.textContent = zusammenfassung || 'Keine Zusammenfassung vorhanden.';
+    statusEl.textContent = handlungscheck && handlungscheck.handlungsreif ? 'Handlungsreif' : 'Noch Klärungsbedarf';
+    nextStepEl.textContent = handlungscheck && handlungscheck.handlungsreif
+        ? 'Vorgang speichern und für die weitere Bearbeitung bereitstellen.'
+        : 'Verbleibenden Klärungsbedarf intern vermerken.';
+    messageEl.textContent = '';
+    card.style.display = 'block';
+
+    saveBtn.onclick = () => {
+        const now = new Date().toISOString();
+        const nextObs = {
+            ...obs,
+            titel,
+            zusammenfassung,
+            vorgangGespeichertAm: now
+        };
+        updateObservationLocal(vorgang.id, nextObs);
+        updatePilotVorgangDraft(vorgang, {
+            titel,
+            zusammenfassung,
+            strukturierteZusammenfassung: zusammenfassung,
+            status: handlungscheck && handlungscheck.handlungsreif ? 'handlungsreif' : (vorgang.status || 'offen'),
+            updatedAt: now
+        });
+        try { appendSystemLog('Vorgang gespeichert', vorgang.id, `Beobachtung ${obs.id} als Vorgangskarte gespeichert`); } catch (e) {}
+        messageEl.textContent = 'Vorgang erfolgreich gespeichert.';
+    };
 };
 
 // New wrapper with confirmation loop
