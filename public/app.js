@@ -2015,11 +2015,22 @@ const startFreeMode = () => {
             }
 
             const persisted = loadObservationsLocal(editableVorgang.id);
-            const activeObservation = persisted.find((item) => item.id === obs.id) || obs;
+            let activeObservation = persisted.find((item) => item.id === obs.id) || obs;
 
-            const followUps = generateFollowUpQuestions(activeObservation);
-            if (followUps.length > 0) {
-                await askMissingInfoFollowUpQuestions(editableVorgang, activeObservation, followUps);
+            const maxClarificationRounds = 3;
+            for (let round = 0; round < maxClarificationRounds; round += 1) {
+                const nextFollowUp = selectNextClarificationQuestion(activeObservation);
+                if (!nextFollowUp) break;
+                await askMissingInfoFollowUpQuestions(editableVorgang, activeObservation, [nextFollowUp]);
+                const refreshed = loadObservationsLocal(editableVorgang.id);
+                activeObservation = refreshed.find((item) => item.id === obs.id) || activeObservation;
+            }
+
+            const remainingFollowUp = selectNextClarificationQuestion(activeObservation);
+            if (remainingFollowUp) {
+                if (msg) msg.textContent = 'Ich habe noch nicht genügend belastbare Informationen, um sicher weiterzuverarbeiten.';
+            } else if (msg) {
+                msg.textContent = 'Danke. Ich habe jetzt genügend Informationen, um den Vorgang weiterzuführen.';
             }
             renderBeobachtungen(editableVorgang);
             const gen = buildObservationSummaryText(activeObservation);
@@ -2391,32 +2402,85 @@ const hasImportancePhraseInText = (text) => {
 };
 
 const hasImpactPhraseInText = (text) => {
-    return /\b(Auswirkung|Folge|Folgen|dadurch|deshalb|daher|darum|deswegen|führt|verursacht|beeinträchtigt|stört|gefährdet|Problem|Schäden|Konsequenz|Risiko)\b/i.test(text);
+    return /\b(Auswirkung|Folge|Folgen|dadurch|deshalb|daher|darum|deswegen|führt|verursacht|beeinträchtigt|stört|gefährdet|Problem|Schäden|Konsequenz|Risiko|verzögert|verzoegert|verlangsamt|Zeitverlust|Zeit verlieren|Zeitverlu.*|blockiert|behindert|bremst|kostet Zeit|Auftrag[e]? verzögert)\b/i.test(text);
 };
 
 const hasDecisionPhraseInText = (text) => {
     return /\b(entschieden|beschlossen|wir haben|ich habe|ich werde|wir werden|entscheiden|Entscheidung|Beschluss|vorgesehen|geplant|veranlasst|sollte)\b/i.test(text);
 };
 
-const generateFollowUpQuestions = (obs) => {
-    const text = String(obs.wasIstPassiert || '').trim();
-    const questions = [];
-    if (!obs.werIstBetroffen && !hasAffectedEntityInText(text)) {
-        questions.push({ field: 'werIstBetroffen', question: 'Wer war betroffen?' });
+const getClarificationQuestionCount = (obs) => Number(obs?.clarificationQuestionCount || 0);
+
+const getClarificationQuestionHistory = (obs) => {
+    if (!obs || !Array.isArray(obs.clarificationQuestionHistory)) return [];
+    return obs.clarificationQuestionHistory.filter(Boolean).map((fieldKey) => String(fieldKey));
+};
+
+const isMeaningfulClarificationText = (value) => {
+    const text = normalizeAnswerText(value);
+    if (!text) return false;
+    if (!/[\p{L}\p{N}]/u.test(text)) return false;
+    if (/^[\p{P}\s]+$/u.test(text)) return false;
+    if (countWords(text) <= 1) return false;
+    if (isFragmentLike(text)) return false;
+    return true;
+};
+
+const getObservationNarrativeText = (obs) => [
+    obs?.originalInput,
+    obs?.rawInput,
+    obs?.understanding?.confirmed,
+    obs?.understanding?.recap,
+    obs?.wasIstPassiert,
+    obs?.answers?.whatHappened?.value,
+    obs?.answers?.whyImportant?.value,
+    obs?.answers?.impact?.value,
+    obs?.answers?.affected?.value
+].filter(Boolean).join(' ');
+
+const hasClearWhatHappened = (obs) => {
+    const direct = obs?.answers?.whatHappened;
+    if (direct && direct.status === 'valid' && isMeaningfulClarificationText(direct.value)) return true;
+    const text = getObservationNarrativeText(obs);
+    return isMeaningfulClarificationText(text) && !isFragmentLike(text) && /[.!?]|\b(ist|war|sind|hat|haben|liegt|liegen|führt|verursacht|verliert|verlieren|verloren|passt|dauert|fehlt|fehlen|zeigt|braucht|muss|müssen|soll|sollen|passiert)\b/i.test(text);
+};
+
+const hasClearWhyOrImpact = (obs) => {
+    const why = obs?.answers?.whyImportant;
+    const impact = obs?.answers?.impact;
+    const text = getObservationNarrativeText(obs);
+    const whyClear = why && why.status === 'valid' && isMeaningfulClarificationText(why.value);
+    const impactClear = impact && impact.status === 'valid' && isMeaningfulClarificationText(impact.value);
+    return whyClear || impactClear || hasImportancePhraseInText(text) || hasImpactPhraseInText(text);
+};
+
+const hasClearAffected = (obs) => {
+    const affected = obs?.answers?.affected;
+    const text = getObservationNarrativeText(obs);
+    return (affected && affected.status === 'valid' && isMeaningfulClarificationText(affected.value)) || hasAffectedEntityInText(text);
+};
+
+const selectNextClarificationQuestion = (obs) => {
+    if (!obs) return null;
+    if (getClarificationQuestionCount(obs) >= 3) return null;
+
+    const history = new Set(getClarificationQuestionHistory(obs));
+    const concreteClear = hasClearWhatHappened(obs);
+    const meaningClear = hasClearWhyOrImpact(obs);
+
+    if (!concreteClear && !history.has('whatHappened')) {
+        return { field: 'whatHappened', question: 'Was ist konkret passiert?' };
     }
-    if (!text) {
-        questions.push({ field: 'wasIstPassiert', question: 'Was wurde beobachtet?' });
+
+    if (concreteClear && !meaningClear && !history.has('whyImportant')) {
+        return { field: 'whyImportant', question: 'Warum ist das wichtig?' };
     }
-    if (!obs.warumWichtig && !hasImportancePhraseInText(text)) {
-        questions.push({ field: 'warumWichtig', question: 'Warum ist dir das wichtig?' });
+
+    if (concreteClear && !meaningClear && history.has('whyImportant') && !history.has('impact')) {
+        return { field: 'impact', question: 'Welche Auswirkung hat das?' };
     }
-    if (!obs.auswirkung && !hasImpactPhraseInText(text)) {
-        questions.push({ field: 'auswirkung', question: 'Welche Auswirkung hatte das?' });
-    }
-    if (!obs.entscheidung && !hasDecisionPhraseInText(text)) {
-        questions.push({ field: 'entscheidung', question: 'Welche Entscheidung wurde getroffen?' });
-    }
-    return questions.slice(0, 3);
+
+    return null;
 };
 
 const askMissingInfoFollowUpQuestions = (vorgang, obs, followUps) => {
@@ -2441,6 +2505,16 @@ const askMissingInfoFollowUpQuestions = (vorgang, obs, followUps) => {
 
         let current = 0;
         let questionSpeechSession = null;
+
+        if (!Array.isArray(followUps) || followUps.length === 0) {
+            return resolve();
+        }
+
+        obs.clarificationQuestionCount = getClarificationQuestionCount(obs) + 1;
+        obs.clarificationQuestionHistory = Array.from(new Set([...getClarificationQuestionHistory(obs), followUps[0].field]));
+        obs.currentClarificationField = followUps[0].field;
+        obs.currentClarificationQuestion = followUps[0].question;
+        updateObservationLocal(vorgang.id, obs);
 
         const openModal = () => {
             modal.style.display = 'flex';
@@ -2519,11 +2593,13 @@ const askMissingInfoFollowUpQuestions = (vorgang, obs, followUps) => {
                 const source = questionSpeechSession ? questionSpeechSession.lastSource : 'unknown';
                 const classification = updateObservationDraftFromField(obs, currentQuestion.field, input.value || '', source);
                 obs[currentQuestion.field] = classification.value;
+                obs.currentClarificationField = '';
+                obs.currentClarificationQuestion = '';
                 updateObservationLocal(vorgang.id, obs);
                 if (classification.needsReview) {
                     nextBtn.disabled = true;
                     clarifyPrompt.show({
-                        message: 'Diese Antwort ist noch nicht eindeutig.',
+                        message: 'Ich bin noch nicht sicher, ob ich deine Antwort richtig einordnen kann. Kannst du das bitte noch etwas genauer beschreiben?',
                         onEdit: () => {
                             nextBtn.disabled = false;
                             input.focus();
@@ -2542,6 +2618,8 @@ const askMissingInfoFollowUpQuestions = (vorgang, obs, followUps) => {
                             obs[currentQuestion.field] = '';
                             if (!obs.answers) obs.answers = createAnswerState();
                             obs.answers[currentQuestion.field] = createAnswerRecord('', 'keyboard', 'unanswered');
+                            obs.currentClarificationField = '';
+                            obs.currentClarificationQuestion = '';
                             updateObservationLocal(vorgang.id, obs);
                             if (current === followUps.length - 1) {
                                 finishFollowUps();
@@ -2552,6 +2630,8 @@ const askMissingInfoFollowUpQuestions = (vorgang, obs, followUps) => {
                         onMarkUnclear: () => {
                             if (!obs.answers) obs.answers = createAnswerState();
                             obs.answers[currentQuestion.field] = { ...classification, status: 'unclear', needsReview: true };
+                            obs.currentClarificationField = '';
+                            obs.currentClarificationQuestion = '';
                             updateObservationLocal(vorgang.id, obs);
                             if (current === followUps.length - 1) {
                                 finishFollowUps();
