@@ -30,6 +30,8 @@ button:focus-visible{outline:3px solid rgba(123,131,50,.4);outline-offset:3px}
 textarea, input[type=text]{font-size:1rem;line-height:1.6;min-height:140px}
 textarea{min-height:140px}
 .quiet-text{margin:0 0 12px 0;color:#4f513d;font-size:0.98rem;line-height:1.6}
+#observationTargetInfo p{overflow-wrap:anywhere;word-break:break-word}
+.vorgang-details span{overflow-wrap:anywhere;word-break:break-word}
 #recapActions, #summaryActions, #hypothesisActions{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
 #recapCorrection div, #summaryEditor div, #hypothesisEditor div{display:flex;flex-wrap:wrap;gap:10px}
 #recapConfirmation h5, #beobachtung-summary h5, #arbeitshypothese h5{margin-bottom:10px}

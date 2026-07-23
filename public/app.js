@@ -1,4 +1,15 @@
 import "./dashboard.js";
+import {
+    OBSERVATION_CAPTURE_STATUS,
+    applySpeechRecognitionEvent,
+    createObservationCaptureSession,
+    finalizeSpeechInterim,
+    markSessionStopping,
+    markSessionPersisted,
+    resetSpeechBuffers,
+    startSpeechCycle,
+    updateSessionTextFromInput
+} from "./observation-capture.js";
 
 const PILOT_TEMPLATE_VORGANG_ID = 'VG-0001';
 const PILOT_ACTIVE_VORGANG_ID_KEY = 'keosActiveVorgangId';
@@ -33,12 +44,323 @@ const cloneValue = (value) => {
     }
 };
 
-const loadPilotVorgangDraft = (vorgangId) => readJsonLocal(pilotVorgangKeyFor(vorgangId), null);
+const escapeHtml = (value) => String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+let activeVorgangState = null;
+
+const setActiveVorgang = (vorgang) => {
+    if (!vorgang || !vorgang.id) {
+        activeVorgangState = null;
+        return null;
+    }
+    activeVorgangState = cloneValue(vorgang);
+    return activeVorgangState;
+};
+
+const getActiveVorgang = () => {
+    if (activeVorgangState && activeVorgangState.id) return activeVorgangState;
+    const activeId = loadActivePilotVorgangId();
+    if (!activeId) return null;
+    const draft = loadPilotVorgangDraft(activeId);
+    if (!draft || !draft.id) return null;
+    activeVorgangState = draft;
+    return activeVorgangState;
+};
+
+const getActiveVorgangId = () => {
+    const active = getActiveVorgang();
+    return active && active.id ? String(active.id) : '';
+};
+
+let observationCaptureSession = null;
+
+const getObservationCaptureSession = () => observationCaptureSession;
+
+const updateObservationCaptureSession = (patch = {}) => {
+    if (!observationCaptureSession) return null;
+    observationCaptureSession = {
+        ...observationCaptureSession,
+        ...cloneValue(patch)
+    };
+    return observationCaptureSession;
+};
+
+const completeObservationCaptureSession = () => {
+    if (!observationCaptureSession) return null;
+    observationCaptureSession.status = OBSERVATION_CAPTURE_STATUS.completed;
+    return observationCaptureSession;
+};
+
+const cancelObservationCaptureSession = () => {
+    if (!observationCaptureSession) return null;
+    observationCaptureSession.status = OBSERVATION_CAPTURE_STATUS.cancelled;
+    return observationCaptureSession;
+};
+
+const resetObservationCaptureSession = () => {
+    observationCaptureSession = null;
+};
+
+const TEXT_DEBUG_PARAM = 'keosDebugText';
+const TEXT_DEBUG_ENABLED = (() => {
+    try {
+        return new URLSearchParams(window.location.search).get(TEXT_DEBUG_PARAM) === '1';
+    } catch (e) {
+        return false;
+    }
+})();
+
+const textDebugState = {
+    enabled: TEXT_DEBUG_ENABLED,
+    startedAt: (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now(),
+    entries: [],
+    container: null,
+    list: null,
+    status: null
+};
+
+const normalizeDebugText = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+
+const collectUniqueDebugTextParts = (values) => {
+    const seen = new Set();
+    return (Array.isArray(values) ? values : [])
+        .map((value) => normalizeDebugText(value))
+        .filter((value) => {
+            if (!value || seen.has(value)) return false;
+            seen.add(value);
+            return true;
+        });
+};
+
+const getDebugPreview = (value, maxLength = 84) => {
+    const text = normalizeDebugText(value);
+    if (!text) return '—';
+    return text.length > maxLength ? `${text.slice(0, maxLength - 1).trim()}…` : text;
+};
+
+const countRepeatedLongTextBlocks = (value) => {
+    const text = normalizeDebugText(value);
+    if (!text) return 0;
+
+    const segments = text
+        .split(/(?<=[.!?])\s+|\n+/)
+        .map((segment) => normalizeDebugText(segment))
+        .filter((segment) => segment.length >= 24);
+
+    let maxRepeats = 1;
+    if (segments.length > 0) {
+        const counts = new Map();
+        segments.forEach((segment) => counts.set(segment, (counts.get(segment) || 0) + 1));
+        counts.forEach((count) => {
+            if (count > maxRepeats) maxRepeats = count;
+        });
+    }
+
+    if (maxRepeats > 1) return maxRepeats;
+
+    const words = text.split(/\s+/).filter(Boolean);
+    if (words.length < 12) return 1;
+    const chunkCounts = new Map();
+    for (let index = 0; index <= words.length - 12; index += 6) {
+        const chunk = words.slice(index, index + 12).join(' ').trim();
+        if (chunk.length < 48) continue;
+        chunkCounts.set(chunk, (chunkCounts.get(chunk) || 0) + 1);
+    }
+    chunkCounts.forEach((count) => {
+        if (count > maxRepeats) maxRepeats = count;
+    });
+    return maxRepeats;
+};
+
+const buildObservationDebugText = (obs) => {
+    if (!obs) return '';
+    return collectUniqueDebugTextParts([
+        obs.rawInput,
+        obs.originalInput,
+        obs.confirmedText,
+        obs.zusammenfassung,
+        obs.strukturierteZusammenfassung,
+        obs.understanding && obs.understanding.confirmed,
+        obs.understanding && obs.understanding.recap,
+        obs.wasIstPassiert,
+        obs.warumWichtig,
+        obs.auswirkung,
+        obs.werIstBetroffen,
+        ...(obs.answers ? Object.values(obs.answers).map((answer) => answer && answer.value) : [])
+    ]).join(' | ');
+};
+
+const buildVorgangDebugText = (vorgang) => {
+    if (!vorgang) return '';
+    return collectUniqueDebugTextParts([
+        vorgang.rohtext,
+        vorgang.zusammenfassung,
+        vorgang.strukturierteZusammenfassung,
+        vorgang.arbeitshypothese,
+        vorgang.arbeitsvorschlag,
+        vorgang.titel,
+        vorgang.nextStepLabel
+    ]).join(' | ');
+};
+
+const formatDebugTime = (timestamp) => `${(timestamp / 1000).toFixed(1).replace('.', ',')} s`;
+
+const renderTextDebugEntries = () => {
+    if (!textDebugState.enabled || !textDebugState.list || !textDebugState.status) return;
+    textDebugState.list.innerHTML = '';
+    const entries = textDebugState.entries.slice(-80);
+    entries.forEach((entry) => {
+        const item = document.createElement('div');
+        item.style.borderTop = '1px solid rgba(255,255,255,.12)';
+        item.style.padding = '8px 0';
+
+        const head = document.createElement('div');
+        head.style.display = 'flex';
+        head.style.justifyContent = 'space-between';
+        head.style.gap = '8px';
+        head.style.fontWeight = '700';
+        head.style.fontSize = '12px';
+        head.innerHTML = `<span>[${formatDebugTime(entry.at)}] ${entry.station}</span><span>Länge: ${entry.length}</span>`;
+        item.appendChild(head);
+
+        const meta = document.createElement('div');
+        meta.style.fontSize = '12px';
+        meta.style.color = 'rgba(255,255,255,.82)';
+        const details = entry.details && Object.keys(entry.details).length > 0
+            ? ` · ${Object.entries(entry.details).map(([key, value]) => `${key}: ${value}`).join(' · ')}`
+            : '';
+        meta.textContent = `Wiederholungen: ${entry.repetitions}${details}`;
+        item.appendChild(meta);
+
+        const preview = document.createElement('div');
+        preview.style.fontSize = '12px';
+        preview.style.color = 'rgba(255,255,255,.72)';
+        preview.textContent = `Vorschau: „${entry.preview}”`;
+        item.appendChild(preview);
+
+        textDebugState.list.appendChild(item);
+    });
+    textDebugState.status.textContent = `${textDebugState.entries.length} Ereignisse`;
+};
+
+const serializeTextDebugReport = () => textDebugState.entries.map((entry) => {
+    const detailText = entry.details && Object.keys(entry.details).length > 0
+        ? `\n${Object.entries(entry.details).map(([key, value]) => `${key}: ${value}`).join(' | ')}`
+        : '';
+    return `[${formatDebugTime(entry.at)}] ${entry.station}\nLänge: ${entry.length}\nWiederholungen: ${entry.repetitions}\nVorschau: ${entry.preview}${detailText}`;
+}).join('\n\n');
+
+const appendTextDebugEntry = (station, text = '', details = {}) => {
+    if (!textDebugState.enabled) return;
+    const normalizedText = normalizeDebugText(text);
+    textDebugState.entries.push({
+        at: ((typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now()) - textDebugState.startedAt,
+        station: String(station || 'unknown'),
+        length: normalizedText.length,
+        repetitions: countRepeatedLongTextBlocks(normalizedText),
+        preview: getDebugPreview(normalizedText),
+        details: cloneValue(details || {})
+    });
+    renderTextDebugEntries();
+};
+
+const initTextDebugMode = () => {
+    if (!textDebugState.enabled || textDebugState.container || !document.body) return;
+    const container = document.createElement('section');
+    container.setAttribute('data-keos-text-debug', '1');
+    container.style.position = 'fixed';
+    container.style.left = '0';
+    container.style.right = '0';
+    container.style.bottom = '0';
+    container.style.zIndex = '1005';
+    container.style.background = 'rgba(24, 28, 18, 0.94)';
+    container.style.color = '#f8f3e8';
+    container.style.padding = '10px 12px 12px';
+    container.style.borderTop = '1px solid rgba(255,255,255,.12)';
+    container.style.boxShadow = '0 -10px 30px rgba(0,0,0,.18)';
+    container.style.fontFamily = 'ui-monospace, SFMono-Regular, Consolas, monospace';
+
+    const header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.justifyContent = 'space-between';
+    header.style.alignItems = 'center';
+    header.style.gap = '10px';
+    header.style.flexWrap = 'wrap';
+
+    const title = document.createElement('strong');
+    title.textContent = 'KEOS Text-Diagnose';
+    header.appendChild(title);
+
+    const status = document.createElement('span');
+    status.style.fontSize = '12px';
+    status.style.color = 'rgba(255,255,255,.78)';
+    status.textContent = '0 Ereignisse';
+    header.appendChild(status);
+
+    const actions = document.createElement('div');
+    actions.style.display = 'flex';
+    actions.style.gap = '8px';
+    actions.style.flexWrap = 'wrap';
+
+    const copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.className = 'secondary';
+    copyBtn.textContent = 'Diagnosebericht kopieren';
+    copyBtn.onclick = async () => {
+        const report = serializeTextDebugReport();
+        try {
+            await navigator.clipboard.writeText(report);
+            status.textContent = `${textDebugState.entries.length} Ereignisse · kopiert`;
+        } catch (e) {
+            status.textContent = `${textDebugState.entries.length} Ereignisse · Kopieren fehlgeschlagen`;
+        }
+    };
+    actions.appendChild(copyBtn);
+
+    const resetBtn = document.createElement('button');
+    resetBtn.type = 'button';
+    resetBtn.className = 'secondary';
+    resetBtn.textContent = 'Diagnose zurücksetzen';
+    resetBtn.onclick = () => {
+        textDebugState.entries = [];
+        textDebugState.startedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
+        renderTextDebugEntries();
+    };
+    actions.appendChild(resetBtn);
+    header.appendChild(actions);
+    container.appendChild(header);
+
+    const list = document.createElement('div');
+    list.style.marginTop = '8px';
+    list.style.maxHeight = '34vh';
+    list.style.overflowY = 'auto';
+    list.style.paddingBottom = '2px';
+    container.appendChild(list);
+
+    document.body.appendChild(container);
+    textDebugState.container = container;
+    textDebugState.list = list;
+    textDebugState.status = status;
+    appendTextDebugEntry('debug.init', '', { query: `${TEXT_DEBUG_PARAM}=1` });
+};
+
+const loadPilotVorgangDraft = (vorgangId) => {
+    const draft = readJsonLocal(pilotVorgangKeyFor(vorgangId), null);
+    appendTextDebugEntry('storage.loaded.vorgangDraft', buildVorgangDebugText(draft), { vorgangId: vorgangId || 'unknown' });
+    return draft;
+};
 
 const savePilotVorgangDraft = (vorgang) => {
     if (!vorgang || !vorgang.id) return false;
     const payload = cloneValue(vorgang);
     const stored = writeJsonLocal(pilotVorgangKeyFor(payload.id), payload);
+    appendTextDebugEntry('vorgang.beforeSave', buildVorgangDebugText(payload), { vorgangId: payload.id, status: payload.status || '' });
+    appendTextDebugEntry('storage.saved.vorgangDraft', buildVorgangDebugText(payload), { vorgangId: payload.id, stored: stored ? 'yes' : 'no' });
     if (stored) {
         try { localStorage.setItem(PILOT_ACTIVE_VORGANG_ID_KEY, payload.id); } catch (e) {}
     }
@@ -81,12 +403,18 @@ const loadPilotVorgang = async () => {
     const activeId = loadActivePilotVorgangId();
     if (activeId) {
         const stored = loadPilotVorgangDraft(activeId);
-        if (stored) return stored;
+        if (stored) {
+            setActiveVorgang(stored);
+            return stored;
+        }
     }
 
     const response = await fetch('/data/vorgaenge/VG-0001.json');
     if (!response.ok) return null;
-    return response.json();
+    const template = await response.json();
+    const editable = activateEditablePilotVorgang(template) || template;
+    setActiveVorgang(editable);
+    return editable;
 };
 
 const activateEditablePilotVorgang = (vorgang) => {
@@ -113,10 +441,12 @@ const activateEditablePilotVorgang = (vorgang) => {
             nextStepLabel: vorgang.nextStepLabel || 'Noch offen'
         };
         savePilotVorgangDraft(draft);
+        setActiveVorgang(draft);
         return draft;
     }
 
     savePilotVorgangDraft(vorgang);
+    setActiveVorgang(vorgang);
     return vorgang;
 };
 
@@ -127,6 +457,7 @@ const updatePilotVorgangDraft = (vorgang, patch = {}) => {
         ...cloneValue(patch)
     };
     savePilotVorgangDraft(next);
+    setActiveVorgang(next);
     return next;
 };
 
@@ -258,6 +589,7 @@ const generateShortObservationTitle = (obs, fallbackDate = new Date()) => {
 };
 
 const buildObservationSummaryText = (obs) => {
+    appendTextDebugEntry('summary.input', buildObservationDebugText(obs), { obsId: obs && obs.id ? obs.id : 'unknown' });
     const answers = obs?.answers || {};
     const parts = [];
     const whatHappened = answers.whatHappened;
@@ -288,20 +620,27 @@ const buildObservationSummaryText = (obs) => {
     if (!affected || affected.status !== 'valid' || !affected.value) openPoints.push('Betroffene');
     if (openPoints.length > 0) parts.push(`Noch nicht ausreichend geklärt: ${openPoints.join(', ')}.`);
 
-    return parts.join(' ');
+    const result = parts.join(' ');
+    appendTextDebugEntry('summary.output', result, { obsId: obs && obs.id ? obs.id : 'unknown' });
+    return result;
 };
 
 const buildObservationHypothesisText = (obs) => {
+    appendTextDebugEntry('hypothesis.input', buildObservationDebugText(obs), { obsId: obs && obs.id ? obs.id : 'unknown' });
     const answers = obs?.answers || {};
     const validCount = Object.values(answers).filter((answer) => answer && answer.status === 'valid' && answer.value).length;
     if (validCount < 2) {
-        return 'Noch keine belastbare Arbeitshypothese. Zunächst offene Angaben klären.';
+        const fallback = 'Noch keine belastbare Arbeitshypothese. Zunächst offene Angaben klären.';
+        appendTextDebugEntry('hypothesis.output', fallback, { obsId: obs && obs.id ? obs.id : 'unknown' });
+        return fallback;
     }
     const impact = answers.impact && answers.impact.status === 'valid' ? answers.impact.value : '';
     const whyImportant = answers.whyImportant && answers.whyImportant.status === 'valid' ? answers.whyImportant.value : '';
     const whatHappened = answers.whatHappened && answers.whatHappened.status === 'valid' ? answers.whatHappened.value : '';
     const base = [whatHappened, whyImportant, impact].filter(Boolean).join(' · ');
-    return `Arbeitshypothese: ${base}`.slice(0, 420);
+    const result = `Arbeitshypothese: ${base}`.slice(0, 420);
+    appendTextDebugEntry('hypothesis.output', result, { obsId: obs && obs.id ? obs.id : 'unknown' });
+    return result;
 };
 
 const buildObservationProposalText = (obs) => {
@@ -430,13 +769,17 @@ function renderVorgangFocus(vorgang) {
     }
 
     const focus = buildVorgangFocus(vorgang);
+    const safeRecommendation = escapeHtml(focus.recommendation);
+    const safeReason = escapeHtml(focus.reason);
+    const safePrimaryAction = escapeHtml(focus.primaryAction);
+    const safeSecondaryAction = escapeHtml(focus.secondaryAction);
     focusCard.innerHTML = `
         <div class="focus-card-title">Nächster sinnvoller Schritt</div>
-        <div class="focus-card-recommendation">${focus.recommendation}</div>
-        <div class="focus-card-reason"><strong>Begründung:</strong><p>${focus.reason}</p></div>
+        <div class="focus-card-recommendation">${safeRecommendation}</div>
+        <div class="focus-card-reason"><strong>Begründung:</strong><p>${safeReason}</p></div>
         <div class="focus-card-actions">
-            <button id="focusPrimaryAction" class="primary">${focus.primaryAction}</button>
-            <button id="focusSecondaryAction" class="secondary">${focus.secondaryAction}</button>
+            <button id="focusPrimaryAction" class="primary">${safePrimaryAction}</button>
+            <button id="focusSecondaryAction" class="secondary">${safeSecondaryAction}</button>
         </div>
     `;
 
@@ -474,6 +817,7 @@ function renderVorgangFocus(vorgang) {
 }
 
 function renderVorgang(vorgang) {
+    if (vorgang && vorgang.id) setActiveVorgang(vorgang);
     const container = document.getElementById('loadedVorgang');
     if (!container) {
         console.error('Render Vorgang: container loadedVorgang nicht gefunden');
@@ -485,13 +829,48 @@ function renderVorgang(vorgang) {
         if (el) el.textContent = value !== undefined && value !== null ? String(value) : '';
     };
 
+    const renderCollapsibleRawText = (id, value) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const raw = String(value || '');
+        const compact = raw.replace(/\s+/g, ' ').trim();
+        const limit = 220;
+        el.innerHTML = '';
+        if (!compact) {
+            el.textContent = '';
+            return;
+        }
+        if (compact.length <= limit) {
+            el.textContent = compact;
+            return;
+        }
+        const preview = `${compact.slice(0, limit).trim()}…`;
+        const textNode = document.createElement('span');
+        textNode.textContent = preview;
+        const toggleBtn = document.createElement('button');
+        toggleBtn.type = 'button';
+        toggleBtn.className = 'secondary';
+        toggleBtn.style.marginLeft = '8px';
+        toggleBtn.style.minHeight = '34px';
+        toggleBtn.style.padding = '6px 10px';
+        toggleBtn.textContent = 'Original vollständig anzeigen';
+        let expanded = false;
+        toggleBtn.onclick = () => {
+            expanded = !expanded;
+            textNode.textContent = expanded ? compact : preview;
+            toggleBtn.textContent = expanded ? 'Original einklappen' : 'Original vollständig anzeigen';
+        };
+        el.appendChild(textNode);
+        el.appendChild(toggleBtn);
+    };
+
     setText('vorgang-id', vorgang.id);
     setText('vorgang-erstelltam', vorgang.erstelltAm || vorgang.createdAt);
     setText('vorgang-titel', vorgang.titel);
     setText('vorgang-typ', vorgang.typ || vorgang.type);
     setText('vorgang-status', vorgang.status);
     setText('vorgang-prioritaet', vorgang.prioritaet);
-    setText('vorgang-rohtext', vorgang.rohtext || vorgang.rawText || '');
+    renderCollapsibleRawText('vorgang-rohtext', vorgang.rohtext || vorgang.rawText || '');
     setText('vorgang-zusammenfassung', vorgang.zusammenfassung || vorgang.structuredSummary || '');
     setText('vorgang-next-step', vorgang.nextStepLabel || vorgang.nextStepType || 'Noch offen');
     setText('vorgang-kontext', vorgang.kontext);
@@ -692,7 +1071,8 @@ async function loadVorgang() {
     try {
         const vorgang = await loadPilotVorgang();
         if (!vorgang) return;
-        renderVorgang(vorgang);
+        const active = activateEditablePilotVorgang(vorgang) || vorgang;
+        renderVorgang(active);
     } catch (error) {
         console.error("Vorgang konnte nicht geladen werden:", error);
     }
@@ -776,10 +1156,18 @@ const speechController = (() => {
         }
     };
 
+    const joinSpeechParts = (...parts) => parts.map((part) => String(part || '').trim()).filter(Boolean).join(' ').trim();
+
     const stopActive = async () => {
         if (!recognition) return;
         if (stopRequested) return endPromise;
         stopRequested = true;
+        const capture = getObservationCaptureSession();
+        if (capture) markSessionStopping(capture);
+        appendTextDebugEntry('workplaceInput.stop', activeSession && activeSession.input ? activeSession.input.value : '', { source: activeSession && activeSession.lastSource ? activeSession.lastSource : 'unknown' });
+        if (activeSession && typeof activeSession.onSpeechStop === 'function') {
+            activeSession.onSpeechStop();
+        }
         if (activeSession) updateUI(activeSession, 'stopping');
         try { recognition.stop(); } catch (e) {}
         endPromise = new Promise((resolve) => { endResolver = resolve; });
@@ -793,35 +1181,77 @@ const speechController = (() => {
         r.continuous = true;
         r.maxAlternatives = 1;
 
-        let speechCommitted = session.input.value || '';
+        const speechBaseText = String(session.input.value || '').trim();
+        let speechCommitted = speechBaseText;
+        const finalResultsByIndex = new Map();
         let started = false;
         let receivedResult = false;
 
         r.onstart = () => {
             started = true;
             state = 'capturing';
+            if (typeof session.onSpeechStart === 'function') {
+                session.onSpeechStart({ speechBaseText });
+            }
             updateUI(session, 'capturing');
         };
 
         r.onresult = (event) => {
             receivedResult = true;
-            let finalText = '';
+            let finalTextAdded = false;
             let interimText = '';
-            for (let i = 0; i < event.results.length; i++) {
+            for (let i = event.resultIndex; i < event.results.length; i += 1) {
                 const rItem = event.results[i];
                 const t = rItem[0] && rItem[0].transcript ? rItem[0].transcript : '';
-                if (rItem.isFinal) finalText += (finalText ? ' ' : '') + t;
-                else interimText += (interimText ? ' ' : '') + t;
+                const transcript = String(t || '').trim();
+                appendTextDebugEntry('speech.onresult', transcript, {
+                    resultIndex: event.resultIndex,
+                    resultsLength: event.results.length,
+                    index: i,
+                    isFinal: rItem && rItem.isFinal ? 'true' : 'false'
+                });
+                if (!transcript) continue;
+                if (rItem.isFinal) {
+                    if (finalResultsByIndex.get(i) !== transcript) {
+                        finalResultsByIndex.set(i, transcript);
+                        finalTextAdded = true;
+                    }
+                    continue;
+                }
+                interimText = joinSpeechParts(interimText, transcript);
             }
-            speechCommitted = (speechCommitted ? speechCommitted + ' ' : '') + finalText;
-            speechCommitted = speechCommitted.trim();
+
+            const orderedFinal = [...finalResultsByIndex.entries()]
+                .sort((a, b) => a[0] - b[0])
+                .map(([, text]) => text)
+                .join(' ')
+                .trim();
+
+            speechCommitted = joinSpeechParts(speechBaseText, orderedFinal);
+
+            let displayText = joinSpeechParts(speechCommitted, interimText);
+            if (typeof session.onSpeechResult === 'function') {
+                const nextText = session.onSpeechResult({
+                    event,
+                    speechBaseText,
+                    interimText,
+                    finalResultsByIndex,
+                    defaultText: displayText
+                });
+                if (typeof nextText === 'string') displayText = nextText;
+            }
+            appendTextDebugEntry('speech.committed', speechCommitted, { resultIndex: event.resultIndex, resultsLength: event.results.length });
             if (!session.manualEdited) {
-                session.input.value = speechCommitted;
-                if (typeof session.onResult === 'function') session.onResult(speechCommitted);
+                session.input.value = displayText;
+                if (typeof session.onResult === 'function') session.onResult(displayText);
             }
+            appendTextDebugEntry('workplaceInput.onresult', session.input.value, { source: session.manualEdited ? 'manual' : 'speech', interim: interimText ? 'yes' : 'no' });
             session.lastSource = session.manualEdited ? (session.hadSpeech ? 'mixed' : 'keyboard') : 'speech';
             session.hadSpeech = true;
-            if (session.message) session.message.textContent = interimText ? 'Ich höre weiter zu …' : 'Erkannter Text wurde übernommen.';
+            if (session.message) {
+                if (interimText) session.message.textContent = 'Ich höre weiter zu …';
+                else if (finalTextAdded) session.message.textContent = 'Erkannter Text wurde übernommen.';
+            }
         };
 
         r.onend = () => {
@@ -935,6 +1365,9 @@ const speechController = (() => {
             stopButton,
             autoRestart: options.autoRestart !== false,
             onResult: options.onResult,
+            onSpeechResult: options.onSpeechResult,
+            onSpeechStart: options.onSpeechStart,
+            onSpeechStop: options.onSpeechStop,
             manualEdited: false,
             hadSpeech: false,
             lastSource: 'unknown'
@@ -1032,6 +1465,107 @@ window.addEventListener('load', initPilotFeedback);
 
 let workplaceMode = null;
 let captureType = null;
+
+const isLikelyMobileViewport = () => {
+    try {
+        return window.matchMedia('(max-width: 900px)').matches;
+    } catch (e) {
+        return (window.innerWidth || 0) <= 900;
+    }
+};
+
+const revealWorkplaceFreeAreaOnMobile = () => {
+    if (!isLikelyMobileViewport()) return;
+    const freeArea = document.getElementById('workplaceFreeArea');
+    const input = document.getElementById('workplaceInput');
+    const target = input || freeArea;
+    if (!target) return;
+
+    requestAnimationFrame(() => {
+        setTimeout(() => {
+            try {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+            } catch (e) {
+                target.scrollIntoView();
+            }
+        }, 40);
+    });
+};
+
+const navigateToVorgangSelection = () => {
+    const continueBtn = document.getElementById('intentContinue');
+    const loadedCard = document.getElementById('loadedVorgangCard');
+    if (continueBtn) {
+        continueBtn.click();
+        continueBtn.focus();
+        return;
+    }
+    if (loadedCard) {
+        loadedCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+};
+
+const updateObservationTargetBanner = (vorgangOverride = null) => {
+    const info = document.getElementById('observationTargetInfo');
+    const text = document.getElementById('observationTargetText');
+    const chooseBtn = document.getElementById('observationChooseOther');
+    if (!info || !text) return;
+    if (chooseBtn) chooseBtn.onclick = navigateToVorgangSelection;
+
+    const vorgang = vorgangOverride || getActiveVorgang();
+    if (!vorgang || !vorgang.id) {
+        info.style.display = 'block';
+        text.textContent = 'Kein aktiver Vorgang ausgewählt. Bitte wähle zuerst einen Vorgang.';
+        return;
+    }
+    info.style.display = 'block';
+    text.textContent = `Diese Beobachtung gehört zu: ${vorgang.titel || vorgang.id}`;
+};
+
+const resetObservationCaptureUi = () => {
+    const input = document.getElementById('workplaceInput');
+    const msg = document.getElementById('workplaceSpeechMessage');
+    const recapWrapper = document.getElementById('recapConfirmation');
+    const recapYes = document.getElementById('recapYes');
+    const recapPartial = document.getElementById('recapPartial');
+    const recapNo = document.getElementById('recapNo');
+    const recapSendCorrection = document.getElementById('recapSendCorrection');
+    const recapCancelCorrection = document.getElementById('recapCancelCorrection');
+    if (input) input.value = '';
+    if (msg) msg.textContent = '';
+    if (recapWrapper) recapWrapper.style.display = 'none';
+    if (recapYes) recapYes.onclick = null;
+    if (recapPartial) recapPartial.onclick = null;
+    if (recapNo) recapNo.onclick = null;
+    if (recapSendCorrection) recapSendCorrection.onclick = null;
+    if (recapCancelCorrection) recapCancelCorrection.onclick = null;
+    hideObservationCompletion();
+    hideVorgangReifeCard();
+};
+
+const startObservationCaptureSession = async ({ mode = 'free' } = {}) => {
+    await speechController.stopActive();
+    resetObservationCaptureSession();
+    const activeVorgang = getActiveVorgang();
+    updateObservationTargetBanner(activeVorgang);
+    if (!activeVorgang || !activeVorgang.id) {
+        const msg = document.getElementById('workplaceSpeechMessage');
+        if (msg) {
+            msg.textContent = 'Es ist kein aktiver Vorgang ausgewählt. Bitte wähle zuerst einen Vorgang.';
+        }
+        return null;
+    }
+    observationCaptureSession = createObservationCaptureSession({
+        vorgangId: activeVorgang.id,
+        mode
+    });
+    resetSpeechBuffers(observationCaptureSession);
+    observationCaptureSession.status = OBSERVATION_CAPTURE_STATUS.capturing;
+    resetWorkplacePendingState();
+    resetObservationCaptureUi();
+    return observationCaptureSession;
+};
+
 const setCaptureType = (type) => {
     captureType = type;
     const captureButtons = [
@@ -1047,6 +1581,7 @@ const setCaptureType = (type) => {
     const modePicker = document.getElementById('workplaceModePicker');
     if (modePicker) {
         modePicker.style.display = captureType ? 'block' : 'none';
+        updateObservationTargetBanner();
         if (captureType) {
             setTimeout(() => {
                 const firstModeBtn = document.getElementById('workplaceModeFree');
@@ -1093,12 +1628,18 @@ const setWorkplaceMode = (mode) => {
         }
     }
     if (workplaceMode === 'free') {
+        appendTextDebugEntry('workplaceInput.visible', document.getElementById('workplaceInput') ? document.getElementById('workplaceInput').value : '', { mode: 'free' });
+        updateObservationTargetBanner();
+        revealWorkplaceFreeAreaOnMobile();
         setTimeout(() => {
             const input = document.getElementById('workplaceInput');
-            if (input) input.focus();
+            if (!input) return;
+            if (isLikelyMobileViewport()) return;
+            input.focus();
         }, 0);
     }
     if (workplaceMode === 'guided') {
+        updateObservationTargetBanner();
         setTimeout(() => {
             const startInterviewBtn = document.getElementById('workplaceStartInterview');
             if (startInterviewBtn) startInterviewBtn.focus();
@@ -1220,16 +1761,43 @@ window.addEventListener('load', () => {
     };
 
     setCaptureButtons();
+    updateObservationTargetBanner();
 
-    if (freeModeBtn) freeModeBtn.onclick = () => {
+    if (freeModeBtn) freeModeBtn.onclick = async () => {
+        const session = await startObservationCaptureSession({ mode: 'free' });
+        if (!session) return;
         setWorkplaceMode('free');
     };
-    if (guidedModeBtn) guidedModeBtn.onclick = () => {
+    if (guidedModeBtn) guidedModeBtn.onclick = async () => {
+        const session = await startObservationCaptureSession({ mode: 'guided' });
+        if (!session) return;
         setWorkplaceMode('guided');
     };
 
     if (speechBtn && workplaceInput) {
-        speechController.registerSpeechControl(speechBtn, workplaceInput, workplaceMsg, workplaceStop, { autoRestart: true });
+        speechController.registerSpeechControl(speechBtn, workplaceInput, workplaceMsg, workplaceStop, {
+            autoRestart: true,
+            onSpeechStart: () => {
+                const session = getObservationCaptureSession();
+                if (!session) return;
+                startSpeechCycle(session, workplaceInput.value || '');
+            },
+            onSpeechResult: ({ event, defaultText }) => {
+                const session = getObservationCaptureSession();
+                if (!session) return defaultText;
+                return applySpeechRecognitionEvent(session, event);
+            },
+            onSpeechStop: () => {
+                const session = getObservationCaptureSession();
+                if (!session) return;
+                finalizeSpeechInterim(session);
+            },
+            onResult: (text) => {
+                const session = getObservationCaptureSession();
+                if (!session) return;
+                updateSessionTextFromInput(session, text);
+            }
+        });
     }
 
     if (finishBtn) {
@@ -1328,6 +1896,11 @@ const loadObservationsLocal = (vorgangId) => {
         const raw = localStorage.getItem(observationsKeyFor(vorgangId));
         if (!raw) return [];
         const parsed = JSON.parse(raw);
+        const lastObservation = Array.isArray(parsed) ? parsed[parsed.length - 1] : null;
+        appendTextDebugEntry('storage.loaded.observations', buildObservationDebugText(lastObservation), {
+            vorgangId: vorgangId || 'unknown',
+            count: Array.isArray(parsed) ? parsed.length : 0
+        });
         return Array.isArray(parsed) ? parsed : [];
     } catch (e) {
         return [];
@@ -1337,6 +1910,11 @@ const loadObservationsLocal = (vorgangId) => {
 const saveObservationsLocal = (vorgangId, arr) => {
     try {
         localStorage.setItem(observationsKeyFor(vorgangId), JSON.stringify(arr || []));
+        const lastObservation = Array.isArray(arr) ? arr[arr.length - 1] : null;
+        appendTextDebugEntry('storage.saved.observations', buildObservationDebugText(lastObservation), {
+            vorgangId: vorgangId || 'unknown',
+            count: Array.isArray(arr) ? arr.length : 0
+        });
     } catch (e) {
         console.error('Speichern der Beobachtungen fehlgeschlagen', e);
     }
@@ -1408,6 +1986,7 @@ const applyObservationConfirmation = (vorgang, obsId, confirmedText) => {
     obs.nextStepType = obs.nextStepType || null;
     observations[idx] = obs;
     saveObservationsLocal(vorgang?.id, observations);
+    appendTextDebugEntry('observation.confirmed', buildObservationDebugText(obs), { obsId, vorgangId: vorgang && vorgang.id ? vorgang.id : 'unknown' });
     return obs;
 };
 
@@ -1474,7 +2053,10 @@ const renderObservationDetails = (obs) => {
         { label: 'Was ist sicher?', value: obs.wasIstSicher },
         { label: 'Was vermutest du?', value: obs.wasVermutestDu }
     ];
-    return fields.filter(item => item.value).map(item => `<p><strong>${item.label}${item.suffix || ''}</strong><br>${String(item.value).trim()}</p>`).join('');
+    return fields
+        .filter(item => item.value)
+        .map((item) => `<p><strong>${escapeHtml(item.label)}${escapeHtml(item.suffix || '')}</strong><br>${escapeHtml(String(item.value).trim())}</p>`)
+        .join('');
 };
 
 const renderBeobachtungen = (vorgang) => {
@@ -1488,6 +2070,9 @@ const renderBeobachtungen = (vorgang) => {
     const visibleItems = merged.filter((obs) => {
         if (showProcessedEntries) return true;
         return !isProcessedEntry(obs);
+    });
+    visibleItems.forEach((obs) => {
+        appendTextDebugEntry('vorgang.render', buildObservationDebugText(obs), { obsId: obs.id || 'unknown', status: obs.status || '' });
     });
     if (!Array.isArray(visibleItems) || visibleItems.length === 0) {
         el.textContent = showProcessedEntries ? 'Keine verarbeiteten Eingänge vorhanden.' : 'Keine offenen Eingänge vorhanden.';
@@ -1572,10 +2157,13 @@ const renderBeobachtungen = (vorgang) => {
 const startObservationInterview = () => {
     return new Promise(async (resolve) => {
         try {
-            const response = await fetch("/data/vorgaenge/VG-0001.json");
-            if (!response.ok) return resolve(null);
-            const vorgang = await response.json();
-            const editableVorgang = activateEditablePilotVorgang(vorgang) || vorgang;
+            const editableVorgang = getActiveVorgangForObservation();
+            if (!editableVorgang) return resolve(null);
+            let captureSession = getObservationCaptureSession();
+            if (!captureSession || captureSession.vorgangId !== editableVorgang.id) {
+                captureSession = await startObservationCaptureSession({ mode: 'guided' });
+            }
+            if (!captureSession) return resolve(null);
 
             const questions = [
                 'Was ist passiert?',
@@ -1688,6 +2276,8 @@ const startObservationInterview = () => {
             const abort = async () => {
                 await cleanupHandlers();
                 closeModal();
+                cancelObservationCaptureSession();
+                resetObservationCaptureSession();
             };
 
             const handleKeydown = async (event) => {
@@ -1765,7 +2355,7 @@ const startObservationInterview = () => {
                         obsAnswers[fieldKey] = { ...meta };
                     });
                     const obs = {
-                        id: `BE-${Date.now()}`,
+                        id: captureSession.observationId,
                         type: 'observation',
                         answers: obsAnswers,
                         rawInput: answeredItems.map((item) => `${item.question} ${item.answer || ''}`.trim()).join(' | '),
@@ -1788,8 +2378,13 @@ const startObservationInterview = () => {
                     obs.arbeitshypothese = buildObservationHypothesisText(obs);
                     obs.arbeitsvorschlag = buildObservationProposalText(obs);
                     const local = loadObservationsLocal(editableVorgang.id);
-                    local.push(obs);
+                    if (!local.find((item) => item.id === obs.id)) {
+                        local.push(obs);
+                    }
                     saveObservationsLocal(editableVorgang.id, local);
+                    markSessionPersisted(captureSession);
+                    captureSession.status = OBSERVATION_CAPTURE_STATUS.completed;
+                    resetObservationCaptureSession();
                     updatePilotVorgangDraft(editableVorgang, {
                         createdAt: editableVorgang.erstelltAm || obs.erstelltAm,
                         titel: obs.titel,
@@ -1904,6 +2499,7 @@ const setWorkplacePendingState = () => {
     }
     if (msg) {
         msg.textContent = '✓ Aufnahme abgeschlossen. KEOS analysiert deine Eingabe...';
+        appendTextDebugEntry('workplace.statusMessage.set', msg.textContent, { state: 'pending' });
     }
 };
 
@@ -1927,31 +2523,116 @@ const resetWorkplacePendingState = () => {
         stopBtn.disabled = false;
     }
     if (msg && msg.textContent === '✓ Aufnahme abgeschlossen. KEOS analysiert deine Eingabe...') {
+        appendTextDebugEntry('workplace.statusMessage.clear', msg.textContent, { state: 'idle' });
         msg.textContent = '';
+    }
+};
+
+const getActiveVorgangForObservation = () => {
+    const active = getActiveVorgang();
+    if (active && active.id) return active;
+    const msg = document.getElementById('workplaceSpeechMessage');
+    if (msg) {
+        msg.textContent = 'Es ist kein aktiver Vorgang ausgewählt. Bitte wähle zuerst einen Vorgang.';
+    }
+    updateObservationTargetBanner(null);
+    return null;
+};
+
+const persistObservationCaptureSession = (session, vorgang, rawText) => {
+    if (!session || !vorgang || !vorgang.id) return null;
+
+    const existing = loadObservationsLocal(vorgang.id);
+    const existingEntry = existing.find((item) => item.id === session.observationId);
+    if (existingEntry) {
+        session.persisted = true;
+        session.status = OBSERVATION_CAPTURE_STATUS.persisted;
+        return existingEntry;
+    }
+
+    if (!markSessionPersisted(session)) {
+        return existing.find((item) => item.id === session.observationId) || null;
+    }
+
+    const text = String(rawText || '').trim();
+    const obs = {
+        id: session.observationId,
+        type: 'observation',
+        wasIstPassiert: text,
+        warumWichtig: '',
+        auswirkung: '',
+        wasIstSicher: '',
+        wasVermutestDu: '',
+        werIstBetroffen: '',
+        entscheidung: '',
+        erstelltAm: new Date().toISOString(),
+        // Compatibility: legacy views still read rawInput/originalInput for detail rendering.
+        rawInput: text,
+        originalInput: text,
+        sourceMode: session.mode === 'guided' ? 'geführt' : 'frei',
+        processId: vorgang.id,
+        understandingStatus: UNDERSTANDING_STATUS.pending,
+        status: 'Entwurf',
+        nextStepType: 'noch-offen',
+        nextStepLabel: 'Noch offen',
+        quelle: 'frei'
+    };
+    obs.understanding = {
+        original: text,
+        recap: buildUnderstandingRecapFromText(text),
+        confirmed: '',
+        status: UNDERSTANDING_STATUS.pending,
+        corrections: []
+    };
+
+    const next = loadObservationsLocal(vorgang.id);
+    next.push(obs);
+    saveObservationsLocal(vorgang.id, next);
+    appendTextDebugEntry('observation.raw', buildObservationDebugText(obs), { obsId: obs.id, vorgangId: vorgang.id });
+    return obs;
+};
+
+const showReviewReadyState = () => {
+    const msg = document.getElementById('workplaceSpeechMessage');
+    const recap = document.getElementById('recapConfirmation');
+    const yesBtn = document.getElementById('recapYes');
+    if (msg) {
+        msg.textContent = 'Auswertung abgeschlossen. Bitte prüfe, ob KEOS dich richtig verstanden hat.';
+    }
+    if (recap) {
+        recap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    if (yesBtn) {
+        setTimeout(() => yesBtn.focus(), 0);
     }
 };
 
 const startFreeMode = () => {
     return new Promise(async (resolve) => {
         try {
-            const response = await fetch("/data/vorgaenge/VG-0001.json");
-            if (!response.ok) {
-                console.error('Freier Modus: Vorgang konnte nicht geladen werden', response.status, response.statusText, response.url);
-                return resolve(null);
-            }
-
-            const vorgang = await response.json();
-            const editableVorgang = activateEditablePilotVorgang(vorgang) || vorgang;
+            const editableVorgang = getActiveVorgangForObservation();
+            if (!editableVorgang) return resolve(null);
 
             const input = document.getElementById('workplaceInput');
             const msg = document.getElementById('workplaceSpeechMessage');
             if (!input) return resolve(null);
+
+            let session = getObservationCaptureSession();
+            if (!session || session.vorgangId !== editableVorgang.id) {
+                session = await startObservationCaptureSession({ mode: 'free' });
+            }
+            if (!session) {
+                if (msg) msg.textContent = 'Erfassung konnte nicht gestartet werden.';
+                return resolve(null);
+            }
 
             setWorkplacePendingState();
             hideVorgangReifeCard();
             await speechController.stopActive();
             setWorkplacePendingState();
             const text = (input.value || '').trim();
+            updateSessionTextFromInput(session, text);
+            appendTextDebugEntry('workplaceInput.finish', text, { mode: 'free' });
             if (!text) {
                 if (msg) msg.textContent = 'Bitte erzähle zuerst etwas, bevor du fertig bist.';
                 resetWorkplacePendingState();
@@ -1959,37 +2640,13 @@ const startFreeMode = () => {
             }
 
             hideObservationCompletion();
-            const obs = {
-                id: `BE-${Date.now()}`,
-                type: 'observation',
-                wasIstPassiert: text,
-                warumWichtig: '',
-                auswirkung: '',
-                wasIstSicher: '',
-                wasVermutestDu: '',
-                werIstBetroffen: '',
-                entscheidung: '',
-                erstelltAm: new Date().toISOString(),
-                rawInput: text,
-                originalInput: text,
-                sourceMode: 'frei',
-                processId: editableVorgang.id,
-                understandingStatus: UNDERSTANDING_STATUS.pending,
-                status: 'Entwurf',
-                nextStepType: 'noch-offen',
-                nextStepLabel: 'Noch offen',
-                quelle: 'frei'
-            };
-            obs.understanding = {
-                original: text,
-                recap: buildUnderstandingRecapFromText(text),
-                confirmed: '',
-                status: UNDERSTANDING_STATUS.pending,
-                corrections: []
-            };
-            const local = loadObservationsLocal(editableVorgang.id);
-            local.push(obs);
-            saveObservationsLocal(editableVorgang.id, local);
+            const obs = persistObservationCaptureSession(session, editableVorgang, text);
+            if (!obs) {
+                if (msg) msg.textContent = 'Beobachtung konnte nicht gespeichert werden.';
+                resetWorkplacePendingState();
+                return resolve(null);
+            }
+
             updatePilotVorgangDraft(editableVorgang, {
                 createdAt: editableVorgang.erstelltAm || obs.erstelltAm,
                 typ: 'Beobachtung',
@@ -2004,6 +2661,8 @@ const startFreeMode = () => {
             });
             try { appendSystemLog('Beobachtung erstellt (frei)', editableVorgang.id, `Beobachtung ${obs.id} erstellt (frei)`); } catch (e) {}
 
+            session.status = OBSERVATION_CAPTURE_STATUS.reviewing;
+            showReviewReadyState();
             const recapResult = await showRecapUI(editableVorgang, obs.understanding.recap, obs.id);
             if (!recapResult || recapResult.status !== UNDERSTANDING_STATUS.confirmed) {
                 if (msg) msg.textContent = 'Bitte erzähle es noch einmal mit deinen eigenen Worten.';
@@ -2014,7 +2673,14 @@ const startFreeMode = () => {
                 hideVorgangReifeCard();
                 renderBeobachtungen(editableVorgang);
                 resetWorkplacePendingState();
+                cancelObservationCaptureSession();
+                resetObservationCaptureSession();
                 return resolve(null);
+            }
+
+            session.status = OBSERVATION_CAPTURE_STATUS.confirmed;
+            if (msg) {
+                msg.textContent = 'Bestätigt. Diese Fassung wird jetzt im Vorgang verwendet.';
             }
 
             const persisted = loadObservationsLocal(editableVorgang.id);
@@ -2063,11 +2729,17 @@ const startFreeMode = () => {
             const gen = buildObservationSummaryText(activeObservation);
             showGeneratedSummary(gen, editableVorgang);
             showObservationCompletion(editableVorgang, activeObservation);
+            const completionCard = document.getElementById('observationCompletionCard');
+            if (completionCard) completionCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            completeObservationCaptureSession();
             resetWorkplacePendingState();
+            resetObservationCaptureSession();
             return resolve(activeObservation);
         } catch (e) {
             console.error('Freier Modus fehlgeschlagen', e);
             resetWorkplacePendingState();
+            cancelObservationCaptureSession();
+            resetObservationCaptureSession();
             return resolve(null);
         }
     });
@@ -2182,11 +2854,11 @@ const renderProposal = (vorgang) => {
 
     const proposalHtml = [
         `<div class="proposal-card">`,
-        `<div class="proposal-section"><strong>Empfehlung</strong><p>${proposal.recommendation || proposal.text}</p></div>`,
-        `<div class="proposal-section"><strong>Fakten</strong><ul>${proposal.facts.map(item => `<li>${item}</li>`).join('')}</ul></div>`,
-        `<div class="proposal-section"><strong>Annahmen</strong><ul>${proposal.assumptions.map(item => `<li>${item}</li>`).join('')}</ul></div>`,
+        `<div class="proposal-section"><strong>Empfehlung</strong><p>${escapeHtml(proposal.recommendation || proposal.text)}</p></div>`,
+        `<div class="proposal-section"><strong>Fakten</strong><ul>${proposal.facts.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>`,
+        `<div class="proposal-section"><strong>Annahmen</strong><ul>${proposal.assumptions.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>`,
         `<div class="proposal-section"><strong>Mögliche Aktionen</strong><ul><li>Vorschlag übernehmen</li><li>Vorschlag bearbeiten</li><li>Nur dokumentieren</li></ul></div>`,
-        proposal.accepted ? `<p class="proposal-status">Vorschlag übernommen am ${formatProcessedDate(proposal.acceptedAt)}</p>` : proposal.documented ? `<p class="proposal-status">Nur dokumentiert am ${formatProcessedDate(proposal.documentedAt)}</p>` : '<p class="proposal-status">Der Vorschlag wartet auf Bestätigung.</p>',
+        proposal.accepted ? `<p class="proposal-status">Vorschlag übernommen am ${escapeHtml(formatProcessedDate(proposal.acceptedAt))}</p>` : proposal.documented ? `<p class="proposal-status">Nur dokumentiert am ${escapeHtml(formatProcessedDate(proposal.documentedAt))}</p>` : '<p class="proposal-status">Der Vorschlag wartet auf Bestätigung.</p>',
         `</div>`
     ].join('');
     display.innerHTML = proposalHtml;
@@ -2757,6 +3429,7 @@ const showGeneratedSummary = (text, vorgang) => {
     const editor = document.getElementById('summaryEditor');
     const textarea = document.getElementById('summaryTextarea');
     if (!display) return;
+    appendTextDebugEntry('summary.output.visible', text, { vorgangId: vorgang && vorgang.id ? vorgang.id : 'unknown' });
     display.textContent = text || '';
     if (actions) actions.style.display = text ? 'block' : 'none';
     if (editor) editor.style.display = 'none';
@@ -2881,6 +3554,7 @@ const setObservationUnderstandingStatus = (vorgang, obsId, status, patch = {}) =
 
 const showRecapUI = (vorgang, recapText, obsId) => {
     return new Promise((resolve) => {
+    appendTextDebugEntry('recap.input', recapText, { vorgangId: vorgang && vorgang.id ? vorgang.id : 'unknown', obsId: obsId || 'unknown' });
     const wrapper = document.getElementById('recapConfirmation');
     const recapEl = document.getElementById('recapText');
     const structurePreview = document.getElementById('recapStructurePreview');
@@ -3039,18 +3713,20 @@ const buildStructurePreview = (vorgang, obsId) => {
     const answerSection = answerRows.map((answer) => {
         const label = `${answer.label}${answer.status && answer.status !== 'valid' ? ` · ${formatStatusLabel(answer.status)}` : ''}`;
         const text = String(answer.value || '').trim();
-        if (!text) return `<div class="recap-card recap-card-empty"><strong>${label}</strong><p>Noch keine Information</p></div>`;
-        return `<div class="recap-card"><strong>${label}</strong><p>${text}</p></div>`;
+        if (!text) return `<div class="recap-card recap-card-empty"><strong>${escapeHtml(label)}</strong><p>Noch keine Information</p></div>`;
+        return `<div class="recap-card"><strong>${escapeHtml(label)}</strong><p>${escapeHtml(text)}</p></div>`;
     }).join('');
 
     return sections.map((section) => {
         const text = String(section.value || '').trim();
         if (!text) {
-            return `<div class="recap-card recap-card-empty"><strong>${section.title}</strong><p>${section.placeholder}</p></div>`;
+            return `<div class="recap-card recap-card-empty"><strong>${escapeHtml(section.title)}</strong><p>${escapeHtml(section.placeholder)}</p></div>`;
         }
         const lines = text.split(/\n+/).filter(Boolean);
-        const content = lines.length > 1 ? `<ul>${lines.map((line) => `<li>${line}</li>`).join('')}</ul>` : `<p>${lines[0]}</p>`;
-        return `<div class="recap-card"><strong>${section.title}</strong>${content}</div>`;
+        const content = lines.length > 1
+            ? `<ul>${lines.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`
+            : `<p>${escapeHtml(lines[0])}</p>`;
+        return `<div class="recap-card"><strong>${escapeHtml(section.title)}</strong>${content}</div>`;
     }).join('') + answerSection;
 };
 
@@ -3155,6 +3831,7 @@ const showVorgangReifeCard = (vorgang, obs, handlungscheck) => {
             zusammenfassung,
             vorgangGespeichertAm: now
         };
+        appendTextDebugEntry('vorgang.beforeSave', buildObservationDebugText(nextObs), { obsId: obs && obs.id ? obs.id : 'unknown', vorgangId: vorgang && vorgang.id ? vorgang.id : 'unknown' });
         updateObservationLocal(vorgang.id, nextObs);
         updatePilotVorgangDraft(vorgang, {
             titel,
@@ -3170,15 +3847,10 @@ const showVorgangReifeCard = (vorgang, obs, handlungscheck) => {
 
 // New wrapper with confirmation loop
 const enhancedStartObservationInterviewWithConfirmation = async () => {
-    const input = document.getElementById('workplaceInput');
-    const msg = document.getElementById('workplaceSpeechMessage');
-    const text = input ? String(input.value || '').trim() : '';
-    if (!text) {
-        if (msg) msg.textContent = 'Bitte erfasse zuerst eine freie Aussage, bevor die Klärung startet.';
-        if (input) input.focus();
-        return;
-    }
-    await startFreeMode();
+    const active = getActiveVorgangForObservation();
+    if (!active) return;
+    await startObservationCaptureSession({ mode: 'guided' });
+    await startObservationInterview();
 };
 
 // rebind observation button to new enhanced wrapper with confirmation
@@ -3186,6 +3858,7 @@ if (obsBtn) obsBtn.onclick = enhancedStartObservationInterviewWithConfirmation;
 
 // ensure summary rendered after initial load
 window.addEventListener('load', async () => {
+    initTextDebugMode();
     try {
         const vorgang = await loadPilotVorgang();
         if (!vorgang) return;
@@ -3290,9 +3963,8 @@ const summaryEl = document.getElementById('summaryDisplay');
 if (summaryEl) {
     const mo = new MutationObserver(async () => {
         try {
-            const response = await fetch("/data/vorgaenge/VG-0001.json");
-            if (!response.ok) return;
-            const vorgang = await response.json();
+            const vorgang = getActiveVorgang() || await loadPilotVorgang();
+            if (!vorgang) return;
             await renderHypothesis(vorgang);
         } catch (e) {
             // ignore

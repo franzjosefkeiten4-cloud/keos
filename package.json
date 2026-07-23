@@ -1,4 +1,10 @@
 {
+  "scripts": {
+    "check": "node --check public/app.js",
+    "test:unit": "node --test tests/unit/**/*.test.mjs",
+    "test:e2e": "playwright test",
+    "test": "npm run test:unit && npm run test:e2e"
+  },
   "devDependencies": {
     "@babel/parser": "^8.0.4",
     "acorn": "^8.17.0",
