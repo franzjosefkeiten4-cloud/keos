@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profil-Erfassung · KC-0002</title>
+<style>
+  :root{
+    --cream:#f5f0e8;
+    --paper:#fdfcf9;
+    --line:#ddd6c4;
+    --olive:#778033;
+    --dark:#3b3a19;
+    --muted:#7d7a66;
+    --warn:#a8542a;
+    --s1:#e8e4d0; --s2:#d5d3ae; --s3:#bcbf8a; --s4:#9da864;
+    --s5:#778033; --s6:#5b6228; --s7:#3b3a19;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:24px 16px 64px;
+    background:var(--cream); color:var(--dark);
+    font-family:Verdana,Geneva,sans-serif; font-size:13px; line-height:1.5;
+  }
+  .wrap{max-width:980px; margin:0 auto}
+  h1{font-size:17px; margin:0 0 2px; letter-spacing:.01em}
+  .sub{color:var(--muted); font-size:11px; margin:0 0 22px}
+  .panel{background:var(--paper); border:1px solid var(--line); padding:18px; margin-bottom:16px}
+  .eyebrow{font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0 0 12px}
+
+  .grid{display:grid; grid-template-columns:1.3fr 1.3fr .7fr .7fr; gap:10px; margin-bottom:12px}
+  label{display:block; font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:4px}
+  input{
+    width:100%; padding:8px 9px; border:1px solid var(--line); background:#fff;
+    font-family:inherit; font-size:13px; color:var(--dark); border-radius:0;
+  }
+  input:focus{outline:2px solid var(--olive); outline-offset:-1px}
+  #profil{font-family:ui-monospace,Consolas,"Courier New",monospace; letter-spacing:.18em; font-size:14px}
+
+  .status{font-size:11px; margin:6px 0 0; min-height:16px; color:var(--muted)}
+  .status.ok{color:var(--olive)}
+  .status.bad{color:var(--warn)}
+
+  /* Profilstreifen */
+  .strip{margin-top:16px}
+  .bars{display:grid; grid-template-columns:repeat(24,1fr); gap:2px; height:88px; align-items:end}
+  .bar{background:var(--s4); position:relative; min-height:2px; transition:height .12s ease}
+  .bar.empty{background:#eeeade; height:6px!important}
+  .v1{background:var(--s1)} .v2{background:var(--s2)} .v3{background:var(--s3)}
+  .v4{background:var(--s4)} .v5{background:var(--s5)} .v6{background:var(--s6)} .v7{background:var(--s7)}
+  .letters{display:grid; grid-template-columns:repeat(24,1fr); gap:2px; margin-top:4px;
+    font-family:ui-monospace,Consolas,monospace; font-size:10px; text-align:center; color:var(--muted)}
+  .ends{display:flex; justify-content:space-between; margin-top:6px; font-size:10px;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--muted)}
+  .readout{display:flex; gap:22px; flex-wrap:wrap; margin-top:14px; padding-top:12px; border-top:1px solid var(--line)}
+  .ro{font-size:11px; color:var(--muted)}
+  .ro b{display:block; font-family:ui-monospace,Consolas,monospace; font-size:19px; color:var(--dark); font-weight:400}
+
+  button{
+    font-family:inherit; font-size:12px; padding:9px 16px; border:1px solid var(--olive);
+    background:var(--olive); color:#fff; cursor:pointer; border-radius:0;
+  }
+  button:hover{background:var(--dark); border-color:var(--dark)}
+  button:disabled{background:#cfcbb8; border-color:#cfcbb8; cursor:not-allowed}
+  button.ghost{background:transparent; color:var(--dark); border-color:var(--line)}
+  button.ghost:hover{background:#efeade; color:var(--dark); border-color:var(--muted)}
+  .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+
+  table{width:100%; border-collapse:collapse; font-size:12px}
+  th{text-align:left; font-size:10px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--muted); font-weight:400; padding:0 8px 7px 0; border-bottom:1px solid var(--line)}
+  td{padding:7px 8px 7px 0; border-bottom:1px solid #efeade; vertical-align:middle}
+  td.mono{font-family:ui-monospace,Consolas,monospace; font-size:11px; letter-spacing:.06em}
+  td.num{text-align:right; font-family:ui-monospace,Consolas,monospace}
+  .mini{display:inline-grid; grid-template-columns:repeat(24,3px); gap:1px; height:20px; align-items:end}
+  .mini i{display:block; min-height:2px}
+  .del{border:none; background:none; color:var(--muted); cursor:pointer; font-size:15px; padding:0 4px}
+  .del:hover{color:var(--warn); background:none}
+  .empty-state{color:var(--muted); font-size:12px; padding:14px 0}
+
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:18px}
+  .stat b{display:block; font-family:ui-monospace,Consolas,monospace; font-size:26px; font-weight:400; line-height:1.1}
+  .stat span{font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
+  .hint{font-size:11px; color:var(--muted); margin:14px 0 0; padding-top:12px; border-top:1px solid var(--line)}
+  .hint strong{color:var(--warn); font-weight:normal}
+  @media(max-width:700px){ .grid{grid-template-columns:1fr 1fr} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Profil-Erfassung</h1>
+  <p class="sub">Stützprofile für die Belegkette von KC-0002 · Skala W1 T2 K3 A4 L5 B6 R7 · 24 Zonen, links Kopf</p>
+
+  <div class="panel">
+    <p class="eyebrow">Neue Messung</p>
+    <div class="grid">
+      <div><label for="name">Name</label><input id="name" autocomplete="off"></div>
+      <div><label for="vorname">Vorname</label><input id="vorname" autocomplete="off"></div>
+      <div><label for="groesse">Größe cm</label><input id="groesse" inputmode="numeric" autocomplete="off"></div>
+      <div><label for="gewicht">Gewicht kg</label><input id="gewicht" inputmode="numeric" autocomplete="off"></div>
+    </div>
+    <div>
+      <label for="profil">Profilcode · 24 Zeichen</label>
+      <input id="profil" spellcheck="false" autocomplete="off" placeholder="AAKWTKKALAKKAAAALAAAALAA">
+      <p class="status" id="status">24 Zeichen aus W T K A L B R.</p>
+    </div>
+
+    <div class="strip">
+      <div class="bars" id="bars"></div>
+      <div class="letters" id="letters"></div>
+      <div class="ends"><span>Kopf</span><span>Fuß</span></div>
+      <div class="readout">
+        <div class="ro"><b id="roSpan">–</b>Spannweite in Stufen</div>
+        <div class="ro"><b id="roJump">–</b>Größter Sprung benachbart</div>
+        <div class="ro"><b id="roSoft">–</b>Weichste Zone</div>
+        <div class="ro"><b id="roFirm">–</b>Festeste Zone</div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:16px">
+      <button id="add" disabled>Messung hinzufügen</button>
+      <span class="ro" id="counter">0 von 30 erfasst</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="eyebrow">Auswertung</p>
+    <div class="stats">
+      <div class="stat"><b id="stN">0</b><span>Messungen</span></div>
+      <div class="stat"><b id="stMean">–</b><span>Spannweite im Mittel</span></div>
+      <div class="stat"><b id="stMin">–</b><span>Kleinste Spannweite</span></div>
+      <div class="stat"><b id="stMax">–</b><span>Größte Spannweite</span></div>
+      <div class="stat"><b id="stJump">–</b><span>Größter Sprung benachbart</span></div>
+    </div>
+    <p class="hint" id="satz">Ab der ersten Messung entsteht hier der Satz für die Belegkette.</p>
+  </div>
+
+  <div class="panel">
+    <p class="eyebrow">Erfasste Messungen</p>
+    <div id="tableWrap"><p class="empty-state">Noch keine Messung erfasst.</p></div>
+    <div class="row" style="margin-top:16px">
+      <button class="ghost" id="expAnon">CSV anonymisiert</button>
+      <button class="ghost" id="expFull">CSV mit Namen</button>
+      <button class="ghost" id="clear">Alle löschen</button>
+    </div>
+    <p class="hint"><strong>Nur die anonymisierte Datei gehört ins Repo.</strong> Die Fassung mit Namen enthält Kundendaten und bleibt außerhalb von Git.</p>
+  </div>
+
+</div>
+
+<script>
+const MAP = {W:1,T:2,K:3,A:4,L:5,B:6,R:7};
+const LET = ['','W','T','K','A','L','B','R'];
+const KEY = 'kc0002:messungen';
+let entries = [];
+
+const $ = id => document.getElementById(id);
+
+/* Speicher: window.storage im Artefakt, localStorage bei lokaler Datei */
+const store = {
+  async get(){
+    if (window.storage) { try { const r = await window.storage.get(KEY); return r ? r.value : null } catch(e){ return null } }
+    try { return localStorage.getItem(KEY) } catch(e){ return null }
+  },
+  async set(v){
+    if (window.storage) { try { await window.storage.set(KEY, v); return } catch(e){} }
+    try { localStorage.setItem(KEY, v) } catch(e){}
+  }
+};
+
+const decode = code => code.split('').map(c => MAP[c]);
+
+function analyse(vals){
+  const min = Math.min(...vals), max = Math.max(...vals);
+  let jump = 0;
+  for (let i=1;i<vals.length;i++) jump = Math.max(jump, Math.abs(vals[i]-vals[i-1]));
+  return { min, max, span: max-min, jump,
+           posMin: vals.indexOf(min)+1, posMax: vals.indexOf(max)+1 };
+}
+
+/* Eingabe */
+const profil = $('profil');
+profil.addEventListener('input', () => {
+  const before = profil.value;
+  const clean = before.toUpperCase().replace(/[^WTKALBR]/g,'').slice(0,24);
+  if (clean !== before) profil.value = clean;
+  render();
+});
+profil.addEventListener('keydown', e => { if (e.key === 'Enter' && !$('add').disabled) addEntry(); });
+
+function render(){
+  const code = profil.value;
+  const st = $('status');
+  const bars = $('bars'), letters = $('letters');
+  bars.innerHTML = ''; letters.innerHTML = '';
+
+  for (let i=0;i<24;i++){
+    const b = document.createElement('div');
+    const l = document.createElement('span');
+    if (i < code.length){
+      const v = MAP[code[i]];
+      b.className = 'bar v'+v;
+      b.style.height = Math.round(v/7*100)+'%';
+      l.textContent = code[i];
+    } else {
+      b.className = 'bar empty';
+      l.textContent = '·';
+    }
+    bars.appendChild(b); letters.appendChild(l);
+  }
+
+  if (code.length === 0){
+    st.className = 'status'; st.textContent = '24 Zeichen aus W T K A L B R.';
+  } else if (code.length < 24){
+    st.className = 'status'; st.textContent = 'Noch ' + (24-code.length) + ' Zeichen.';
+  } else {
+    const dup = entries.find(e => e.profil === code);
+    if (dup){
+      st.className = 'status bad';
+      st.textContent = 'Dieser Code ist bereits als ' + dup.id + ' erfasst. Prüfen, ob er doppelt kopiert wurde.';
+    } else {
+      st.className = 'status ok'; st.textContent = 'Vollständig.';
+    }
+  }
+
+  if (code.length === 24){
+    const a = analyse(decode(code));
+    $('roSpan').textContent = a.span;
+    $('roJump').textContent = a.jump;
+    $('roSoft').textContent = LET[a.min] + a.min + ' · Pos ' + a.posMin;
+    $('roFirm').textContent = LET[a.max] + a.max + ' · Pos ' + a.posMax;
+  } else {
+    ['roSpan','roJump','roSoft','roFirm'].forEach(i => $(i).textContent = '–');
+  }
+
+  $('add').disabled = code.length !== 24;
+}
+
+async function addEntry(){
+  const code = profil.value;
+  if (code.length !== 24) return;
+  const a = analyse(decode(code));
+  entries.push({
+    id: 'M-' + String(entries.length+1).padStart(3,'0'),
+    name: $('name').value.trim(),
+    vorname: $('vorname').value.trim(),
+    groesse: $('groesse').value.trim(),
+    gewicht: $('gewicht').value.trim(),
+    profil: code, span: a.span, jump: a.jump
+  });
+  ['name','vorname','groesse','gewicht','profil'].forEach(i => $(i).value = '');
+  await store.set(JSON.stringify(entries));
+  render(); paint();
+  $('name').focus();
+}
+$('add').addEventListener('click', addEntry);
+
+function paint(){
+  const n = entries.length;
+  $('counter').textContent = n + ' von 30 erfasst';
+  $('stN').textContent = n;
+
+  const wrap = $('tableWrap');
+  if (!n){
+    wrap.innerHTML = '<p class="empty-state">Noch keine Messung erfasst.</p>';
+    ['stMean','stMin','stMax','stJump'].forEach(i => $(i).textContent = '–');
+    $('satz').textContent = 'Ab der ersten Messung entsteht hier der Satz für die Belegkette.';
+    return;
+  }
+
+  const spans = entries.map(e => e.span);
+  const mean = spans.reduce((a,b)=>a+b,0)/n;
+  const mn = Math.min(...spans), mx = Math.max(...spans);
+  const jump = Math.max(...entries.map(e => e.jump));
+  $('stMean').textContent = mean.toFixed(1).replace('.',',');
+  $('stMin').textContent = mn;
+  $('stMax').textContent = mx;
+  $('stJump').textContent = jump;
+
+  $('satz').innerHTML = 'Über ' + n + ' gemessene Stützprofile liegen im Mittel <b>' +
+    mean.toFixed(1).replace('.',',') + ' Härtestufen</b> zwischen weichster und festester Zone; ' +
+    'die kleinste beobachtete Spannweite beträgt ' + mn + ' Stufen. ' +
+    'Der größte Sprung zwischen zwei benachbarten Zonen liegt bei ' + jump + ' Stufen.';
+
+  let html = '<table><thead><tr><th>ID</th><th>Person</th><th>cm</th><th>kg</th>' +
+             '<th>Profil</th><th>Verlauf</th><th style="text-align:right">Spann.</th>' +
+             '<th style="text-align:right">Sprung</th><th></th></tr></thead><tbody>';
+  entries.forEach((e,i) => {
+    const mini = decode(e.profil).map(v =>
+      '<i class="v'+v+'" style="height:'+Math.round(v/7*20)+'px"></i>').join('');
+    const person = [e.name, e.vorname].filter(Boolean).join(', ') || '<span style="color:#a8a48f">—</span>';
+    html += '<tr><td class="mono">'+e.id+'</td><td>'+person+'</td>' +
+            '<td class="num">'+(e.groesse||'–')+'</td><td class="num">'+(e.gewicht||'–')+'</td>' +
+            '<td class="mono">'+e.profil+'</td><td><span class="mini">'+mini+'</span></td>' +
+            '<td class="num">'+e.span+'</td><td class="num">'+e.jump+'</td>' +
+            '<td><button class="del" data-i="'+i+'" title="Löschen">×</button></td></tr>';
+  });
+  wrap.innerHTML = html + '</tbody></table>';
+
+  wrap.querySelectorAll('.del').forEach(b => b.addEventListener('click', async () => {
+    entries.splice(+b.dataset.i, 1);
+    entries.forEach((e,i) => e.id = 'M-' + String(i+1).padStart(3,'0'));
+    await store.set(JSON.stringify(entries));
+    render(); paint();
+  }));
+}
+
+function download(rows, file){
+  const csv = '\uFEFF' + rows.map(r => r.join(';')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
+  const a = document.createElement('a');
+  a.href = url; a.download = file; a.click();
+  URL.revokeObjectURL(url);
+}
+
+$('expAnon').addEventListener('click', () => {
+  if (!entries.length) return;
+  download([['id','groesse_cm','gewicht_kg','profil','spannweite','max_sprung'],
+    ...entries.map(e => [e.id,e.groesse,e.gewicht,e.profil,e.span,e.jump])],
+    'kc-0002-profile-anonym.csv');
+});
+
+$('expFull').addEventListener('click', () => {
+  if (!entries.length) return;
+  download([['id','name','vorname','groesse_cm','gewicht_kg','profil','spannweite','max_sprung'],
+    ...entries.map(e => [e.id,e.name,e.vorname,e.groesse,e.gewicht,e.profil,e.span,e.jump])],
+    'kc-0002-profile-MIT-NAMEN.csv');
+});
+
+$('clear').addEventListener('click', async () => {
+  if (!entries.length) return;
+  if (!confirm('Alle ' + entries.length + ' Messungen löschen?')) return;
+  entries = [];
+  await store.set(JSON.stringify(entries));
+  render(); paint();
+});
+
+(async () => {
+  const raw = await store.get();
+  if (raw){ try { entries = JSON.parse(raw) || [] } catch(e){ entries = [] } }
+  render(); paint();
+})();
+</script>
+</body>
+</html>
