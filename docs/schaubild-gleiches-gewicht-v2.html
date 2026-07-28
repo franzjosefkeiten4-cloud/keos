@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Beratungsschaubild · Gleiches Gewicht, verschiedene Passung</title>
+<style>
+  @page { size: A4 landscape; margin: 0; }
+  :root{
+    --cream:#f5f0e8; --paper:#fdfcf9; --line:#ddd6c4;
+    --olive:#778033; --dark:#3b3a19; --muted:#7d7a66;
+    --a:#778033; --b:#a8542a;
+    --neutral:#d8d2c0;   /* abgedimmtes Grundmuster fuer ungemessene Zonen */
+    --measurebg:#faf7ef;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{background:#ccc}
+  body{font-family:Verdana,Geneva,sans-serif; color:var(--dark)}
+  .sheet{
+    width:297mm; height:210mm; background:var(--paper);
+    margin:0 auto; padding:13mm 15mm; position:relative;
+    display:flex; flex-direction:column;
+  }
+  @media print{ html,body{background:#fff} .sheet{margin:0} }
+
+  .head{border-bottom:2px solid var(--olive); padding-bottom:4mm; margin-bottom:5mm}
+  .eyebrow{font-size:9pt; letter-spacing:.22em; text-transform:uppercase; color:var(--muted); margin-bottom:2mm}
+  h1{font-size:20pt; font-weight:normal; line-height:1.15}
+  h1 b{color:var(--olive); font-weight:bold}
+
+  .facts{display:flex; margin-bottom:5mm}
+  .fact{flex:1; text-align:center; padding:2.5mm 0; border-right:1px solid var(--line)}
+  .fact:last-child{border-right:none}
+  .fact .k{font-size:8.5pt; color:var(--muted); text-transform:uppercase; letter-spacing:.08em}
+  .fact .v{font-size:14pt; margin-top:1mm}
+
+  .charts{flex:1; display:flex; gap:9mm; align-items:stretch}
+  .col{flex:1; display:flex; flex-direction:column}
+  .coltitle{display:flex; align-items:center; gap:3mm; margin-bottom:8mm}
+  .dot{width:5mm; height:5mm; border-radius:50%}
+  .coltitle .who{font-size:12.5pt}
+  .coltitle .sub{font-size:8.5pt; color:var(--muted); margin-left:auto}
+
+  .chart{flex:1; position:relative; border-bottom:1.5px solid var(--dark)}
+  /* Messbereich-Hintergrund hervorheben */
+  .measureband{position:absolute; top:0; bottom:0; background:var(--measurebg);
+    border-left:1px dashed var(--line); border-right:1px dashed var(--line)}
+  .bars{position:absolute; inset:0; display:flex; align-items:flex-end; gap:1.5px; padding:0 1px}
+  .bar{flex:1; border-radius:1.5px 1.5px 0 0}
+  .bar.neutral{background:var(--neutral)}
+  .zones{position:absolute; top:-6mm; left:0; right:0; display:flex; font-size:7.5pt; color:var(--muted)}
+  .zones span{text-align:center}
+  .axlab{position:absolute; bottom:-5.5mm; left:0; right:0; display:flex; justify-content:space-between; font-size:7pt; color:var(--muted); padding:0 1px}
+  .measurelabel{position:absolute; top:-11mm; font-size:7.5pt; color:var(--olive); text-align:center; letter-spacing:.04em}
+
+  .legend{display:flex; gap:6mm; margin-top:9mm; font-size:8pt; color:var(--muted)}
+  .legend span{display:flex; align-items:center; gap:2mm}
+  .swatch{width:4mm; height:4mm; border-radius:1px; display:inline-block}
+
+  .foot{border-top:1px solid var(--line); margin-top:5mm; padding-top:3.5mm; display:flex; justify-content:space-between; align-items:flex-end}
+  .take{font-size:10.5pt; line-height:1.4; max-width:185mm}
+  .take b{color:var(--olive)}
+  .brand{text-align:right; font-size:7.5pt; color:var(--muted); line-height:1.5}
+  .brand .name{font-size:9.5pt; color:var(--dark); letter-spacing:.05em}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <div class="head">
+    <div class="eyebrow">Warum wir messen statt schätzen</div>
+    <h1>Gleiches Gewicht — und trotzdem <b>ein völlig anderer Körper</b> auf der Liegefläche.</h1>
+  </div>
+
+  <div class="facts">
+    <div class="fact"><div class="k">Person A</div><div class="v">65 kg · 162 cm</div></div>
+    <div class="fact"><div class="k">Person B</div><div class="v">67 kg · 172 cm</div></div>
+    <div class="fact"><div class="k">Härtegrad-Tabelle sagt</div><div class="v">für beide identisch</div></div>
+    <div class="fact"><div class="k">Gemessener Auflagedruck</div><div class="v" style="color:var(--b)">grundverschieden</div></div>
+  </div>
+
+  <div class="charts">
+    <div class="col">
+      <div class="coltitle">
+        <span class="dot" style="background:var(--a)"></span>
+        <span class="who">Person A</span>
+        <span class="sub">Druckmaximum in der Körpermitte</span>
+      </div>
+      <div class="chart" data-person="A">
+        <div class="measureband"></div>
+        <div class="measurelabel">gemessener Bereich</div>
+        <div class="zones" id="zonesA"></div>
+        <div class="bars" id="barsA"></div>
+        <div class="axlab"><span>Kopf</span><span>Füße</span></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="coltitle">
+        <span class="dot" style="background:var(--b)"></span>
+        <span class="who">Person B</span>
+        <span class="sub">Druckmaximum im unteren Bereich</span>
+      </div>
+      <div class="chart" data-person="B">
+        <div class="measureband"></div>
+        <div class="measurelabel">gemessener Bereich</div>
+        <div class="zones" id="zonesB"></div>
+        <div class="bars" id="barsB"></div>
+        <div class="axlab"><span>Kopf</span><span>Füße</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i class="swatch" style="background:var(--a)"></i> gemessener Auflagedruck (Person A)</span>
+    <span><i class="swatch" style="background:var(--b)"></i> gemessener Auflagedruck (Person B)</span>
+    <span><i class="swatch" style="background:var(--neutral)"></i> Standard-Stützbereich (nicht gemessen, für alle gleich)</span>
+  </div>
+
+  <div class="foot">
+    <div class="take">
+      Der Körper wird im entscheidenden Bereich gemessen — an Schulter, Taille und Becken.
+      Kopf und Beine folgen einem festen Grundmuster. Eine Härtegrad-Tabelle kennt nur Ihr
+      Gewicht und <b>kann nicht wissen, wo Ihr Körper aufliegt.</b>
+    </div>
+    <div class="brand">
+      <div class="name">KEITEN Schlafberatung</div>
+      Aus eigenen Liegedruck-Messungen<br>reale, anonymisierte Profile
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // 12 gemessene Druckwerte (Auflagedruck), Position 3-14, Kopf -> Fuß
+  const measA=[11,13,16,18,20,35,44,38,24,15,12,11];
+  const measB=[9,17,23,22,18,16,14,15,22,28,23,18];
+  // Neutrale Randzonen: Standard-Stützprofil des Systems, flach dargestellt.
+  // Pos 1-2 (Kopf) und Pos 15-24 (Beine/Füße) - fuer BEIDE identisch.
+  const headN = 2;   // Zonen 1-2
+  const footN = 10;  // Zonen 15-24
+  const PMAX = 48;   // Skala fuer gemessenen Druck
+
+  // Neutralbalken bekommen eine flache, dezente Hoehe (klar unter den Messspitzen)
+  const NEUTRAL_H = 20; // % der Chart-Hoehe, gleichmaessig
+
+  function build(barsId, zonesId, meas, color){
+    const box=document.getElementById(barsId);
+    // Kopf-Zonen (neutral)
+    for(let i=0;i<headN;i++) box.appendChild(mkBar(NEUTRAL_H, 'neutral'));
+    // gemessene Zonen (farbig)
+    meas.forEach(v=> box.appendChild(mkBar(v/PMAX*100, 'measure', color)));
+    // Fuß-Zonen (neutral)
+    for(let i=0;i<footN;i++) box.appendChild(mkBar(NEUTRAL_H, 'neutral'));
+
+    // Zonen-Beschriftung: Schulter / Taille / Becken ueber dem Messbereich verteilt
+    const z=document.getElementById(zonesId);
+    const total=headN+12+footN;
+    // leerer Platzhalter Kopf
+    z.appendChild(mkZone(headN/total*100, ''));
+    z.appendChild(mkZone(4/total*100, 'Schulter'));
+    z.appendChild(mkZone(4/total*100, 'Taille'));
+    z.appendChild(mkZone(4/total*100, 'Becken'));
+    z.appendChild(mkZone(footN/total*100, ''));
+  }
+  function mkBar(h, cls, color){
+    const b=document.createElement('div');
+    b.className='bar'+(cls==='neutral'?' neutral':'');
+    b.style.height=h+'%';
+    if(cls==='measure') b.style.background=color;
+    return b;
+  }
+  function mkZone(widthPct, label){
+    const s=document.createElement('span');
+    s.style.width=widthPct+'%';
+    s.textContent=label;
+    return s;
+  }
+
+  // Messband-Hintergrund korrekt positionieren (ueber die 12 gemessenen Zonen)
+  function positionBand(person){
+    const chart=document.querySelector('.chart[data-person="'+person+'"]');
+    const band=chart.querySelector('.measureband');
+    const total=headN+12+footN;
+    const leftPct=headN/total*100;
+    const widthPct=12/total*100;
+    band.style.left=leftPct+'%';
+    band.style.width=widthPct+'%';
+    const lbl=chart.querySelector('.measurelabel');
+    lbl.style.left=leftPct+'%';
+    lbl.style.width=widthPct+'%';
+  }
+
+  const cA=getComputedStyle(document.documentElement).getPropertyValue('--a').trim();
+  const cB=getComputedStyle(document.documentElement).getPropertyValue('--b').trim();
+  build('barsA','zonesA',measA,cA);
+  build('barsB','zonesB',measB,cB);
+  positionBand('A'); positionBand('B');
+</script>
+</body>
+</html>

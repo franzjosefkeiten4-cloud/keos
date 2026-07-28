@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Messerfassung · Keiten Wissensbibliothek</title>
+<style>
+  :root{
+    --cream:#f5f0e8; --paper:#fdfcf9; --line:#ddd6c4;
+    --olive:#778033; --dark:#3b3a19; --muted:#7d7a66; --warn:#a8542a;
+    --s1:#e8e4d0; --s2:#d5d3ae; --s3:#bcbf8a; --s4:#9da864;
+    --s5:#778033; --s6:#5b6228; --s7:#3b3a19;
+    --seite:#778033; --ruecken:#a8542a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; padding:24px 16px 64px; background:var(--cream); color:var(--dark);
+    font-family:Verdana,Geneva,sans-serif; font-size:13px; line-height:1.5}
+  .wrap{max-width:1000px; margin:0 auto}
+  h1{font-size:17px; margin:0 0 2px}
+  .sub{color:var(--muted); font-size:11px; margin:0 0 22px}
+  .panel{background:var(--paper); border:1px solid var(--line); padding:18px; margin-bottom:16px}
+  .eyebrow{font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0 0 14px}
+
+  .grid{display:grid; gap:10px; margin-bottom:14px}
+  .g5{grid-template-columns:1.2fr 1.2fr .8fr .7fr .7fr}
+  .g4{grid-template-columns:1.6fr .7fr .7fr}
+  .gopt{grid-template-columns:1fr 1.4fr}
+  .optset{display:flex; gap:6px}
+  .opt{flex:0 0 auto; padding:8px 16px; border:1px solid var(--line); background:#fff;
+    color:var(--muted); cursor:pointer; font-family:inherit; font-size:13px; border-radius:0}
+  .opt:hover{border-color:var(--muted); background:#faf8f1}
+  .opt.active{background:var(--olive); border-color:var(--olive); color:#fff}
+  label{display:block; font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:4px}
+  input,select{width:100%; padding:8px 9px; border:1px solid var(--line); background:#fff;
+    font-family:inherit; font-size:13px; color:var(--dark); border-radius:0}
+  input:focus,select:focus{outline:2px solid var(--olive); outline-offset:-1px}
+
+  .roh{margin:6px 0 4px}
+  .roh label{margin-bottom:6px}
+  .roh label .tag{display:inline-block; width:9px; height:9px; margin-right:6px; vertical-align:baseline; border-radius:2px}
+  .rohgrid{display:grid; grid-template-columns:repeat(12,1fr); gap:4px}
+  .rohgrid input{padding:7px 2px; text-align:center; font-family:ui-monospace,Consolas,monospace; font-size:12px}
+  .rohnum{display:grid; grid-template-columns:repeat(12,1fr); gap:4px; margin-bottom:2px}
+  .rohnum span{text-align:center; font-size:9px; color:var(--muted)}
+
+  #vorschlagMitte,#final{font-family:ui-monospace,Consolas,monospace; letter-spacing:.16em; font-size:14px}
+  .profilrow{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:10px}
+  .status{font-size:11px; margin:6px 0 0; min-height:16px; color:var(--muted)}
+  .status.ok{color:var(--olive)} .status.bad{color:var(--warn)}
+
+  .cmp{display:grid; grid-template-columns:repeat(24,1fr); gap:2px; margin-top:12px}
+  .cmp .cell{height:22px; display:flex; align-items:center; justify-content:center;
+    font-family:ui-monospace,Consolas,monospace; font-size:10px; border:1px solid transparent}
+  .cmp .same{background:#efeade; color:var(--muted)}
+  .cmp .diff{background:var(--warn); color:#fff; font-weight:bold}
+  .cmp .unmeasured{background:#f6f3ea; color:#c9c3ae}
+  .cmplabel{font-size:10px; color:var(--muted); margin-top:8px}
+
+  button{font-family:inherit; font-size:12px; padding:9px 16px; border:1px solid var(--olive);
+    background:var(--olive); color:#fff; cursor:pointer; border-radius:0}
+  button:hover{background:var(--dark); border-color:var(--dark)}
+  button:disabled{background:#cfcbb8; border-color:#cfcbb8; cursor:not-allowed}
+  button.ghost{background:transparent; color:var(--dark); border-color:var(--line)}
+  button.ghost:hover{background:#efeade; border-color:var(--muted)}
+  .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+
+  table{width:100%; border-collapse:collapse; font-size:12px}
+  th{text-align:left; font-size:10px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--muted); font-weight:400; padding:0 8px 7px 0; border-bottom:1px solid var(--line)}
+  td{padding:7px 8px 7px 0; border-bottom:1px solid #efeade; vertical-align:middle}
+  td.mono{font-family:ui-monospace,Consolas,monospace; font-size:11px; letter-spacing:.04em}
+  td.num{text-align:right; font-family:ui-monospace,Consolas,monospace}
+  .badge{display:inline-block; padding:1px 7px; font-size:10px; border-radius:2px}
+  .badge.gem{background:#e8e4d0; color:var(--dark)}
+  .badge.korr{background:var(--warn); color:#fff}
+  .badge.orig{background:#e3ead0; color:var(--olive)}
+  .del{border:none; background:none; color:var(--muted); cursor:pointer; font-size:15px; padding:0 4px}
+  .del:hover{color:var(--warn)}
+  tr.needlage{background:#fbf3ec}
+  .lagepick{display:inline-flex; gap:3px}
+  .lagepick button{padding:2px 8px; border:1px solid var(--warn); background:#fff; color:var(--warn);
+    cursor:pointer; font-family:inherit; font-size:11px; border-radius:0}
+  .lagepick button:hover{background:var(--warn); color:#fff}
+  .empty-state{color:var(--muted); font-size:12px; padding:14px 0}
+  .hint{font-size:11px; color:var(--muted); margin:14px 0 0; padding-top:12px; border-top:1px solid var(--line)}
+  .hint strong{color:var(--warn); font-weight:normal}
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:18px}
+  .stat b{display:block; font-family:ui-monospace,Consolas,monospace; font-size:24px; font-weight:400; line-height:1.1}
+  .stat span{font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
+  @media(max-width:760px){ .g5,.g4,.gopt{grid-template-columns:1fr 1fr} .profilrow{grid-template-columns:1fr} }
+
+  #presentView{display:none; position:fixed; inset:0; background:var(--cream); z-index:1000; overflow-y:auto}
+  #presentView.on{display:block}
+  .pv-topbar{position:sticky; top:0; z-index:1001; background:var(--paper); border-bottom:1px solid var(--line); padding:12px 20px}
+  .pv-close{padding:9px 16px; border:1px solid var(--line); background:#fff; color:var(--dark); cursor:pointer; font-family:inherit; font-size:13px}
+  .pv-close:hover{background:#efeade}
+  .pv-wrap{padding:24px 20px 60px}
+  .pv-headline{font-size:24px; font-weight:normal; line-height:1.2; text-align:center; margin-bottom:6px}
+  .pv-headline b{color:var(--olive); font-weight:bold}
+  .pv-subline{font-size:13px; color:var(--muted); text-align:center; margin-bottom:24px}
+  .pv-facts{display:flex; max-width:640px; margin:0 auto 24px; border:1px solid var(--line); background:var(--paper)}
+  .pv-fact{flex:1; text-align:center; padding:12px 4px; border-right:1px solid var(--line)}
+  .pv-fact:last-child{border-right:none}
+  .pv-fact .k{font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em}
+  .pv-fact .v{font-size:16px; margin-top:3px}
+  .pv-charts{display:grid; grid-template-columns:1fr 1fr; gap:32px; max-width:900px; margin:0 auto}
+  .pv-charts.single{grid-template-columns:1fr; max-width:480px}
+  .pv-col .pv-ct{display:flex; align-items:center; gap:8px; margin-bottom:28px}
+  .pv-dot{width:12px; height:12px; border-radius:50%}
+  .pv-ct .who{font-size:15px}
+  .pv-ct .sub{font-size:11px; color:var(--muted); margin-left:auto}
+  .pv-chart{position:relative; height:150px; border-bottom:2px solid var(--dark)}
+  .pv-band{position:absolute; top:0; bottom:0; background:var(--paper); border-left:1px dashed var(--line); border-right:1px dashed var(--line)}
+  .pv-mlabel{position:absolute; top:-20px; font-size:10px; color:var(--olive); text-align:center}
+  .pv-bars{position:absolute; inset:0; display:flex; align-items:flex-end; gap:2px; padding:0 2px}
+  .pv-bar{flex:1; border-radius:2px 2px 0 0}
+  .pv-bar.neutral{background:#d8d2c0}
+  .pv-zones{position:absolute; top:-18px; left:0; right:0; display:flex; font-size:9px; color:var(--muted)}
+  .pv-zones span{text-align:center}
+  .pv-ax{position:absolute; bottom:-18px; left:0; right:0; display:flex; justify-content:space-between; font-size:9px; color:var(--muted); padding:0 2px}
+  .pv-legend{display:flex; gap:18px; flex-wrap:wrap; justify-content:center; margin-top:28px; font-size:11px; color:var(--muted)}
+  .pv-legend span{display:flex; align-items:center; gap:6px}
+  .pv-sw{width:12px; height:12px; border-radius:2px; display:inline-block}
+  .pv-take{max-width:700px; margin:24px auto 0; padding:16px; background:var(--paper); border-left:3px solid var(--olive); font-size:15px; line-height:1.5}
+  .pv-take b{color:var(--olive)}
+  .show-btn{background:var(--dark); border-color:var(--dark)}
+  .show-btn:hover{background:#2a2913}
+</style>
+</head>
+<body>
+
+<div id="showBar" style="display:none; position:sticky; top:0; z-index:900; background:var(--dark); color:#fff; padding:10px 16px; align-items:center; gap:10px; flex-wrap:wrap; box-shadow:0 2px 8px rgba(0,0,0,.15)">
+  <span id="showBarLabel" style="font-size:13px; margin-right:auto">Messung gespeichert.</span>
+  <button id="showLast" class="show-btn" style="background:var(--olive); border-color:var(--olive)">Dem Kunden zeigen →</button>
+  <button id="showPair" class="show-btn" style="display:none; background:#5b6228; border-color:#5b6228">Als Paar →</button>
+  <button id="showBarClose" style="background:transparent; border:1px solid rgba(255,255,255,.4); color:#fff; padding:8px 12px; cursor:pointer; font-family:inherit; font-size:12px">✕</button>
+</div>
+
+<div id="presentView">
+  <div class="pv-topbar">
+    <button class="pv-close" id="pvClose" onclick="pvCloseView()">← Zurück zur Erfassung</button>
+  </div>
+  <div class="pv-wrap" id="pvContent"></div>
+</div>
+
+<div class="wrap">
+
+  <h1>Messerfassung</h1>
+  <p class="sub">Rohwerte beider Lagen und Systemvorschlag · Skala W1 T2 K3 A4 L5 B6 R7 · gemessen werden Position 3–14</p>
+
+  <div class="panel">
+    <p class="eyebrow">Neue Messung</p>
+
+    <div class="grid g4">
+      <div><label for="kuerzel">Kürzel <span style="text-transform:none; letter-spacing:0">(Arbeitshilfe, z. B. m.t. — nicht im anonymen Export)</span></label><input id="kuerzel" autocomplete="off"></div>
+      <div><label for="groesse">Größe cm</label><input id="groesse" inputmode="numeric" autocomplete="off"></div>
+      <div><label for="gewicht">Gewicht kg</label><input id="gewicht" inputmode="numeric" autocomplete="off"></div>
+    </div>
+
+    <div class="grid gopt">
+      <div>
+        <label>Geschlecht</label>
+        <div class="optset" id="optGeschlecht">
+          <button type="button" class="opt active" data-val="w">Frau</button>
+          <button type="button" class="opt" data-val="m">Mann</button>
+        </div>
+      </div>
+      <div>
+        <label>Bei der Messung angegebene Schlaflage</label>
+        <div class="optset" id="optLage">
+          <button type="button" class="opt active" data-val="seite">Seite</button>
+          <button type="button" class="opt" data-val="ruecken">Rücken</button>
+          <button type="button" class="opt" data-val="bauch">Bauch</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="roh">
+      <label><span class="tag" style="background:var(--seite)"></span>Rohwerte Seitenlage · 12 Messpunkte (Kopf → Fuß)</label>
+      <div class="rohnum" id="rohnumS"></div>
+      <div class="rohgrid" id="rohSeite"></div>
+    </div>
+
+    <div class="roh">
+      <label><span class="tag" style="background:var(--ruecken)"></span>Rohwerte Rückenlage · 12 Messpunkte (Kopf → Fuß)</label>
+      <div class="rohgrid" id="rohRuecken"></div>
+    </div>
+
+    <div class="profilrow">
+      <div>
+        <label for="vorschlagMitte">Systemvorschlag · nur Position 3–14 <span style="text-transform:none; letter-spacing:0">(Ränder werden automatisch ergänzt)</span></label>
+        <input id="vorschlagMitte" spellcheck="false" autocomplete="off" placeholder="KTTKAABKKKAA" maxlength="12">
+        <p class="status" id="statusV">12 Zeichen aus W T K A L B R. Ränder AA … AALAAAALAA werden ergänzt.</p>
+      </div>
+      <div>
+        <label for="final">Vollständiger Systemvorschlag <span style="text-transform:none; letter-spacing:0">(24 Zeichen, nur bei abweichendem Rand ändern)</span></label>
+        <input id="final" spellcheck="false" autocomplete="off" placeholder="wird automatisch aus dem Vorschlag übernommen">
+        <p class="status" id="statusF">Übernimmt den Vorschlag automatisch.</p>
+      </div>
+    </div>
+
+    <div class="cmp" id="cmp"></div>
+    <div class="cmplabel" id="cmplabel">Abweichung final ↔ Vorschlag erscheint hier, sobald beide 24 Zeichen haben.</div>
+
+    <div class="row" style="margin-top:16px">
+      <button id="add" disabled>Messung hinzufügen</button>
+      <span class="stat" style="margin-left:4px"><span id="counter" style="font-size:11px; color:var(--muted); text-transform:none; letter-spacing:0">0 erfasst</span></span>
+    </div>
+  </div>
+
+  <div id="dirtyBar" style="display:none; background:#a8542a; color:#fff; padding:11px 16px; margin-bottom:16px; font-size:13px">
+    <strong id="dirtyCount"></strong> · Diese Daten liegen nur im Browser des Tablets. Vor dem Schließen unbedingt „CSV sichern" antippen — sonst können sie verloren gehen.
+  </div>
+
+  <div class="panel">
+    <p class="eyebrow">Auswertung</p>
+    <div class="stats">
+      <div class="stat"><b id="stN">0</b><span>Messungen</span></div>
+      <div class="stat"><b id="stLage">–</b><span>Seite / Rücken / Bauch</span></div>
+      <div class="stat"><b id="stDiffSR">–</b><span>Ø Differenz Seite↔Rücken</span></div>
+      <div class="stat"><b id="stMaxSR">–</b><span>Größte Differenz Seite↔Rücken</span></div>
+    </div>
+    <p class="hint" id="satz">Ab der ersten vollständigen Messung entsteht hier die Auswertung.</p>
+  </div>
+
+  <div class="panel">
+    <p class="eyebrow">Erfasste Messungen</p>
+    <input id="tableSearch" placeholder="Suchen: Kürzel, kg, cm, ID …" autocomplete="off" style="width:100%; padding:8px 10px; border:1px solid var(--line); background:#fff; font-family:inherit; font-size:13px; margin-bottom:12px">
+    <div id="tableWrap"><p class="empty-state">Noch keine Messung erfasst.</p></div>
+    <div class="row" style="margin-top:16px">
+      <button id="expAnon">CSV sichern (anonym)</button>
+      <button class="ghost" id="expFull">CSV mit Kürzel</button>
+      <button class="ghost" id="importBtn">CSV importieren</button>
+      <input type="file" id="importFile" accept=".csv" style="display:none">
+      <button class="ghost" id="pairSelect">Paar auswählen & zeigen</button>
+      <button class="ghost" id="clear">Alle löschen</button>
+    </div>
+    <div id="pairPicker" style="display:none; margin-top:14px; padding:14px; background:var(--cream); border:1px solid var(--line)">
+      <div class="pickrow">
+        <div><label>Person A</label><select id="pairA"></select></div>
+        <div><label>Person B</label><select id="pairB"></select></div>
+      </div>
+      <button id="pairShow" class="show-btn" style="margin-top:8px">Als Paar zeigen →</button>
+      <p class="hint">Zwei erfasste Personen wählen — es werden ihre beiden echten Profile nebeneinander gezeigt.</p>
+    </div>
+    <p class="hint" id="importHint" style="display:none"><strong>Import:</strong> Bei importierten Messungen ohne Lage-Angabe erscheint in der Tabelle ein Lage-Wähler. Bitte pro Zeile die Schlaflage nachtragen.</p>
+    <p class="hint"><strong>Nur die anonymisierte Datei gehört ins Repo.</strong> Die Fassung mit Namen enthält Kundendaten und bleibt außerhalb von Git.</p>
+  </div>
+
+</div>
+
+<script>
+const MAP={W:1,T:2,K:3,A:4,L:5,B:6,R:7};
+const LET=['','W','T','K','A','L','B','R'];
+const KEY='keis:messungen:v3';
+let dirty=false; // ungespeicherte/nicht-exportierte Aenderungen
+
+// Optionsfelder (Segmented Controls)
+const optState={geschlecht:'w', lage:'seite'};
+function initOpt(boxId, key){
+  const box=document.getElementById(boxId);
+  box.querySelectorAll('.opt').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      box.querySelectorAll('.opt').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      optState[key]=btn.dataset.val;
+    });
+  });
+}
+initOpt('optGeschlecht','geschlecht');
+initOpt('optLage','lage');
+// Live-Suche in der Messungsliste
+document.getElementById('tableSearch').addEventListener('input', ()=>paint());
+function resetOpt(boxId,key,val){
+  const box=document.getElementById(boxId);
+  box.querySelectorAll('.opt').forEach(b=>b.classList.toggle('active',b.dataset.val===val));
+  optState[key]=val;
+}
+let entries=[];
+const $=id=>document.getElementById(id);
+
+const store={
+  async get(){
+    if(window.storage){try{const r=await window.storage.get(KEY);return r?r.value:null}catch(e){return null}}
+    try{return localStorage.getItem(KEY)}catch(e){return null}
+  },
+  async set(v){
+    if(window.storage){try{await window.storage.set(KEY,v);return}catch(e){}}
+    try{localStorage.setItem(KEY,v)}catch(e){}
+  }
+};
+
+const decode=code=>code.split('').map(c=>MAP[c]);
+
+function markDirty(){
+  const bar=$('dirtyBar');
+  if(dirty && entries.length){
+    bar.style.display='block';
+    $('dirtyCount').textContent=entries.length+' Messung(en) noch nicht als CSV gesichert';
+  } else {
+    bar.style.display='none';
+  }
+}
+// Warnung beim Verlassen, solange ungesichert
+window.addEventListener('beforeunload',e=>{
+  if(dirty && entries.length){ e.preventDefault(); e.returnValue=''; }
+});
+
+// Rohwert-Felder aufbauen (12 je Lage) + Nummerierung 3-14
+(function buildRoh(){
+  const numRow=$('rohnumS');
+  for(let i=0;i<12;i++){
+    const sp=document.createElement('span'); sp.textContent='P'+(i+3);
+    numRow.appendChild(sp);
+  }
+  ['rohSeite','rohRuecken'].forEach(id=>{
+    const box=$(id);
+    for(let i=0;i<12;i++){
+      const inp=document.createElement('input');
+      inp.inputMode='numeric'; inp.autocomplete='off'; inp.maxLength=2; inp.dataset.i=i; inp.dataset.lage=id;
+      inp.addEventListener('input',e=>{
+        // nur Ziffern zulassen
+        const clean=inp.value.replace(/[^0-9]/g,'').slice(0,2);
+        if(clean!==inp.value)inp.value=clean;
+        // nach zwei Ziffern ins naechste Feld springen
+        if(inp.value.length===2)focusNextRoh(id,i);
+      });
+      inp.addEventListener('keydown',e=>{
+        if(e.key==='Enter'&&!$('add').disabled){addEntry();return;}
+        // Backspace im leeren Feld: zurueck ins vorige
+        if(e.key==='Backspace'&&inp.value===''){focusPrevRoh(id,i);}
+      });
+      box.appendChild(inp);
+    }
+  });
+})();
+
+function focusNextRoh(id,i){
+  if(i<11){ $(id).children[i+1].focus(); $(id).children[i+1].select(); }
+  else if(id==='rohSeite'){ $('rohRuecken').children[0].focus(); $('rohRuecken').children[0].select(); }
+  else { $('vorschlagMitte').focus(); }
+}
+function focusPrevRoh(id,i){
+  if(i>0){ const p=$(id).children[i-1]; p.focus(); p.select(); }
+  else if(id==='rohRuecken'){ const p=$('rohSeite').children[11]; p.focus(); p.select(); }
+}
+
+function readRoh(id){
+  return [...$(id).children].map(inp=>{
+    const n=parseFloat(inp.value); return isNaN(n)?null:n;
+  });
+}
+function rohComplete(id){ return readRoh(id).every(v=>v!==null); }
+
+// Vorschlag -> Final automatisch spiegeln, bis Final manuell angefasst wird
+let finalTouched=false;
+const RAND_VORNE='AA', RAND_HINTEN='AALAAAALAA';
+const vorschlagMitte=$('vorschlagMitte'), final=$('final');
+
+// aktueller Vollvorschlag aus der Mitte-Eingabe
+function vorschlagVoll(){
+  const m=vorschlagMitte.value;
+  return m.length===12 ? RAND_VORNE+m+RAND_HINTEN : '';
+}
+
+vorschlagMitte.addEventListener('input',()=>{
+  const clean=vorschlagMitte.value.toUpperCase().replace(/[^WTKALBR]/g,'').slice(0,12);
+  if(clean!==vorschlagMitte.value)vorschlagMitte.value=clean;
+  if(!finalTouched){ final.value=vorschlagVoll(); }
+  render();
+});
+vorschlagMitte.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!$('add').disabled){addEntry();return;}
+  if(vorschlagMitte.value.length===12 && e.key.length===1 && /[wtkalbrWTKALBR]/.test(e.key)===false){}
+});
+final.addEventListener('input',()=>{
+  finalTouched=true;
+  const clean=final.value.toUpperCase().replace(/[^WTKALBR]/g,'').slice(0,24);
+  if(clean!==final.value)final.value=clean;
+  render();
+});
+final.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!$('add').disabled)addEntry(); });
+
+function statusForMitte(){
+  const el=$('statusV'), m=vorschlagMitte.value;
+  if(m.length===0){el.className='status';el.textContent='12 Zeichen aus W T K A L B R. Ränder AA … AALAAAALAA werden ergänzt.';return false;}
+  if(m.length<12){el.className='status';el.textContent='Noch '+(12-m.length)+' Zeichen.';return false;}
+  el.className='status ok';el.textContent='Vollständig → '+vorschlagVoll();return true;
+}
+function statusFor(el,code){
+  if(code.length===0){el.className='status';el.textContent='24 Zeichen aus W T K A L B R.';return false;}
+  if(code.length<24){el.className='status';el.textContent='Noch '+(24-code.length)+' Zeichen.';return false;}
+  el.className='status ok';el.textContent='Vollständig.';return true;
+}
+
+function render(){
+  const v=vorschlagVoll(), f=final.value;
+  const vOk=statusForMitte();
+  if(!finalTouched){$('statusF').className='status';$('statusF').textContent='Übernimmt den Vorschlag automatisch.';}
+  else statusFor($('statusF'),f);
+
+  const cmp=$('cmp'); cmp.innerHTML='';
+  if(v.length===24&&f.length===24){
+    let diffs=0;
+    for(let i=0;i<24;i++){
+      const cell=document.createElement('div');
+      const measured=(i>=2&&i<=13); // Position 3-14
+      cell.className='cell '+(!measured?'unmeasured':(v[i]===f[i]?'same':'diff'));
+      cell.textContent=f[i];
+      if(measured&&v[i]!==f[i])diffs++;
+      cmp.appendChild(cell);
+    }
+    $('cmplabel').textContent=diffs===0
+      ?'Finales Profil identisch mit dem Systemvorschlag.'
+      :'Finales Profil weicht an '+diffs+' Position(en) vom Vorschlag ab (rot). Grau = nicht gemessener Randbereich.';
+  } else {
+    $('cmplabel').textContent='Abweichung final ↔ Vorschlag erscheint hier, sobald beide 24 Zeichen haben.';
+  }
+
+  const ready = v.length===24 && f.length===24
+    && rohComplete('rohSeite') && rohComplete('rohRuecken');
+  $('add').disabled=!ready;
+}
+
+// bei Rohwert-Eingabe render auslösen
+document.addEventListener('input',e=>{
+  if(e.target.closest('#rohSeite,#rohRuecken'))render();
+});
+
+function srDiff(s,r){
+  const d=s.map((x,i)=>Math.abs(x-r[i]));
+  return { mean:d.reduce((a,b)=>a+b,0)/d.length, max:Math.max(...d) };
+}
+
+async function addEntry(){
+  const v=vorschlagVoll(), f=final.value;
+  const s=readRoh('rohSeite'), r=readRoh('rohRuecken');
+  if(v.length!==24||f.length!==24||!rohComplete('rohSeite')||!rohComplete('rohRuecken'))return;
+  const korr=[...Array(24)].reduce((a,_,i)=>a+((i>=2&&i<=13&&v[i]!==f[i])?1:0),0);
+  const sr=srDiff(s,r);
+  const newIndex=entries.length;
+  entries.push({
+    id:'M-'+String(entries.length+1).padStart(3,'0'),
+    kuerzel:$('kuerzel').value.trim(),
+    geschlecht:optState.geschlecht, lage:optState.lage,
+    groesse:$('groesse').value.trim(), gewicht:$('gewicht').value.trim(),
+    rohSeite:s, rohRuecken:r, vorschlag:v, final:f,
+    korrektur:korr, srMean:+sr.mean.toFixed(1), srMax:sr.max
+  });
+  // Formular leeren
+  ['kuerzel','groesse','gewicht','vorschlagMitte','final'].forEach(i=>$(i).value='');
+  resetOpt('optGeschlecht','geschlecht','w');
+  resetOpt('optLage','lage','seite');
+  [...$('rohSeite').children,...$('rohRuecken').children].forEach(i=>i.value='');
+  finalTouched=false;
+  dirty=true; markDirty();
+  await store.set(JSON.stringify(entries));
+  render(); paint(); showAfterSave(newIndex); $('kuerzel').focus();
+}
+$('add').addEventListener('click',addEntry);
+
+function paint(){
+  const n=entries.length;
+  $('counter').textContent=n+' erfasst';
+  $('stN').textContent=n;
+  const wrap=$('tableWrap');
+  if(!n){
+    wrap.innerHTML='<p class="empty-state">Noch keine Messung erfasst.</p>';
+    ['stLage','stDiffSR','stMaxSR'].forEach(i=>$(i).textContent='–');
+    $('satz').textContent='Ab der ersten vollständigen Messung entsteht hier die Auswertung.';
+    return;
+  }
+  const cnt={seite:0,ruecken:0,bauch:0,offen:0};
+  entries.forEach(e=>{ cnt[e.lage||'offen']=(cnt[e.lage||'offen']||0)+1; });
+  const srMeans=entries.map(e=>e.srMean);
+  const srAvg=srMeans.reduce((a,b)=>a+b,0)/n;
+  const srMax=Math.max(...entries.map(e=>e.srMax));
+  $('stLage').textContent=cnt.seite+' / '+cnt.ruecken+' / '+cnt.bauch+(cnt.offen?' ('+cnt.offen+' offen)':'');
+  $('stDiffSR').textContent=srAvg.toFixed(1).replace('.',',');
+  $('stMaxSR').textContent=srMax;
+
+  $('satz').innerHTML='Über '+n+' Messungen ('+cnt.seite+' Seite, '+cnt.ruecken+' Rücken, '+cnt.bauch+' Bauch) '
+    +'liegt die mittlere Differenz zwischen Seiten- und Rückenmessung je Messpunkt bei <b>'+srAvg.toFixed(1).replace('.',',')
+    +'</b> mbar, im Maximum bei '+srMax+' mbar. Das belegt, dass die Schlaflage das Druckbild erheblich verändert.';
+
+  const LAGELAB={seite:'Seite',ruecken:'Rücken',bauch:'Bauch'};
+  const q=($('tableSearch').value||'').trim().toLowerCase();
+  // indizierte Liste, neueste zuerst, optional gefiltert
+  let list=entries.map((e,i)=>({e,i}));
+  list.reverse(); // neueste oben
+  if(q){
+    list=list.filter(({e})=>{
+      const hay=[e.id, e.kuerzel, e.gewicht, e.groesse, LAGELAB[e.lage]||''].join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }
+  let html='<table><thead><tr><th>ID</th><th>Kürzel</th><th>G</th><th>Lage</th><th>cm</th><th>kg</th>'
+    +'<th>Vorschlag</th><th style="text-align:right">Ø S↔R</th><th></th></tr></thead><tbody>';
+  if(!list.length){
+    html+='<tr><td colspan="9" style="color:var(--muted); padding:14px 0">Keine Messung passt zur Suche.</td></tr>';
+  }
+  list.forEach(({e,i})=>{
+    const k=e.kuerzel||'<span style="color:#a8a48f">—</span>';
+    let lageCell;
+    if(e.lage){
+      lageCell=LAGELAB[e.lage]||'–';
+    } else {
+      lageCell='<span class="lagepick" data-i="'+i+'">'
+        +'<button type="button" data-i="'+i+'" data-lage="seite">S</button>'
+        +'<button type="button" data-i="'+i+'" data-lage="ruecken">R</button>'
+        +'<button type="button" data-i="'+i+'" data-lage="bauch">B</button></span>';
+    }
+    html+='<tr'+(e.lage?'':' class="needlage"')+'><td class="mono">'+e.id+'</td><td>'+k+'</td>'
+      +'<td>'+(e.geschlecht==='w'?'♀':'♂')+'</td><td>'+lageCell+'</td>'
+      +'<td class="num">'+(e.groesse||'–')+'</td><td class="num">'+(e.gewicht||'–')+'</td>'
+      +'<td class="mono">'+e.final+'</td><td class="num">'+e.srMean.toString().replace('.',',')+'</td>'
+      +'<td><button class="del" data-i="'+i+'">×</button></td></tr>';
+  });
+  wrap.innerHTML=html+'</tbody></table>';
+  wrap.querySelectorAll('.lagepick button').forEach(b=>b.addEventListener('click',async()=>{
+    entries[+b.dataset.i].lage=b.dataset.lage;
+    dirty=true; markDirty();
+    await store.set(JSON.stringify(entries)); paint();
+    $('importHint').style.display=entries.some(e=>!e.lage)?'block':'none';
+  }));
+  wrap.querySelectorAll('.del').forEach(b=>b.addEventListener('click',async()=>{
+    entries.splice(+b.dataset.i,1);
+    entries.forEach((e,i)=>e.id='M-'+String(i+1).padStart(3,'0'));
+    dirty=true; markDirty();
+    await store.set(JSON.stringify(entries)); paint();
+  }));
+}
+
+function download(rows,file){
+  const csv='\uFEFF'+rows.map(r=>r.join(';')).join('\r\n');
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  const a=document.createElement('a'); a.href=url; a.download=file; a.click(); URL.revokeObjectURL(url);
+}
+
+const HEAD_BASE=['id','geschlecht','lage','groesse_cm','gewicht_kg',
+  ...[...Array(12)].map((_,i)=>'seite_p'+(i+3)),
+  ...[...Array(12)].map((_,i)=>'ruecken_p'+(i+3)),
+  'vorschlag','sr_mean','sr_max'];
+
+function rowBase(e){
+  return [e.id,e.geschlecht,e.lage,e.groesse,e.gewicht,...e.rohSeite,...e.rohRuecken,
+    e.vorschlag,e.srMean,e.srMax];
+}
+
+$('expAnon').addEventListener('click',()=>{
+  if(!entries.length)return;
+  download([HEAD_BASE,...entries.map(rowBase)],'keis-messungen-anonym.csv');
+  dirty=false; markDirty();
+});
+$('expFull').addEventListener('click',()=>{
+  if(!entries.length)return;
+  const head=['kuerzel',...HEAD_BASE];
+  download([head,...entries.map(e=>[e.kuerzel,...rowBase(e)])],'keis-messungen-MIT-KUERZEL.csv');
+});
+$('clear').addEventListener('click',async()=>{
+  if(!entries.length)return;
+  if(!confirm('Alle '+entries.length+' Messungen löschen?'))return;
+  entries=[]; dirty=false; markDirty(); await store.set(JSON.stringify(entries)); paint();
+});
+
+// CSV-Import: alte Datensaetze einlesen, Lage bleibt leer zum Nachtragen
+$('importBtn').addEventListener('click',()=>$('importFile').click());
+$('importFile').addEventListener('change',async e=>{
+  const file=e.target.files[0]; if(!file)return;
+  const text=await file.text();
+  const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(l=>l.trim());
+  if(!lines.length)return;
+  const head=lines[0].split(';');
+  const idx=nm=>head.indexOf(nm);
+  let added=0, skipped=0;
+  for(let li=1; li<lines.length; li++){
+    const c=lines[li].split(';');
+    const g=c[idx('gewicht_kg')];
+    if(!g){skipped++; continue;}
+    const s=[]; const r=[];
+    for(let p=3;p<=14;p++){ s.push(parseFloat(c[idx('seite_p'+p)])); r.push(parseFloat(c[idx('ruecken_p'+p)])); }
+    if(s.some(isNaN)||r.some(isNaN)){skipped++; continue;}
+    let vor=idx('vorschlag')>=0?c[idx('vorschlag')]:'';
+    if(!vor && idx('final')>=0) vor=c[idx('final')];
+    const lage=idx('lage')>=0?(c[idx('lage')]||''):'';
+    const geschlecht=idx('geschlecht')>=0?(c[idx('geschlecht')]||'w'):'w';
+    const sr=srDiff(s,r);
+    entries.push({
+      id:'M-'+String(entries.length+1).padStart(3,'0'),
+      kuerzel:idx('kuerzel')>=0?(c[idx('kuerzel')]||''):'',
+      geschlecht, lage,
+      groesse:c[idx('groesse_cm')]||'', gewicht:g,
+      rohSeite:s, rohRuecken:r, vorschlag:vor, final:vor,
+      korrektur:0, srMean:+sr.mean.toFixed(1), srMax:sr.max
+    });
+    added++;
+  }
+  $('importFile').value='';
+  dirty=true; markDirty();
+  await store.set(JSON.stringify(entries));
+  paint();
+  $('importHint').style.display=entries.some(e=>!e.lage)?'block':'none';
+  alert(added+' Messungen importiert'+(skipped?', '+skipped+' uebersprungen':'')+'.\nBitte in der Tabelle die Schlaflage nachtragen.');
+});
+
+(async()=>{
+  const raw=await store.get();
+  if(raw){try{entries=JSON.parse(raw)||[]}catch(e){entries=[]}}
+  // beim Laden vorhandener Daten als ungesichert markieren (sie liegen nur im Browser)
+  if(entries.length){ dirty=true; }
+  render(); paint(); markDirty();
+})();
+
+/* ============ Präsentationsansicht ============ */
+const PV_HEAD=2, PV_FOOT=10, PV_PMAX=48, PV_NEUT=20;
+const cOlive=getComputedStyle(document.documentElement).getPropertyValue('--olive').trim();
+const cClay='#a8542a';
+
+function pvForm(s){ const m=s.reduce((a,b)=>a+b,0)/s.length; return s.map(x=>x-m); }
+function pvDist(a,b){ let d=0; for(let i=0;i<12;i++) d+=Math.abs(a[i]-b[i]); return d/12; }
+function pvMaxLabel(s){ const i=s.indexOf(Math.max(...s)); return i<=3?'im Schulterbereich':(i<=7?'in der Körpermitte':'im unteren Bereich'); }
+function pvRound(v,step){ return Math.round(parseFloat(v)/step)*step; }
+
+function pvChart(meas, color){
+  const total=PV_HEAD+12+PV_FOOT;
+  let bars='';
+  for(let i=0;i<PV_HEAD;i++) bars+='<div class="pv-bar neutral" style="height:'+PV_NEUT+'%"></div>';
+  meas.forEach(v=> bars+='<div class="pv-bar" style="height:'+(v/PV_PMAX*100)+'%;background:'+color+'"></div>');
+  for(let i=0;i<PV_FOOT;i++) bars+='<div class="pv-bar neutral" style="height:'+PV_NEUT+'%"></div>';
+  const bl=(PV_HEAD/total*100), bw=(12/total*100);
+  const zones='<div class="pv-zones">'
+    +'<span style="width:'+(PV_HEAD/total*100)+'%"></span>'
+    +'<span style="width:'+(4/total*100)+'%">Schulter</span>'
+    +'<span style="width:'+(4/total*100)+'%">Taille</span>'
+    +'<span style="width:'+(4/total*100)+'%">Becken</span>'
+    +'<span style="width:'+(PV_FOOT/total*100)+'%"></span></div>';
+  return '<div class="pv-chart">'
+    +'<div class="pv-band" style="left:'+bl+'%;width:'+bw+'%"></div>'
+    +'<div class="pv-mlabel" style="left:'+bl+'%;width:'+bw+'%">gemessen</div>'
+    +zones
+    +'<div class="pv-bars">'+bars+'</div>'
+    +'<div class="pv-ax"><span>Kopf</span><span>Füße</span></div></div>';
+}
+function pvLegend(){
+  return '<div class="pv-legend">'
+    +'<span><i class="pv-sw" style="background:'+cOlive+'"></i> gemessener Auflagedruck</span>'
+    +'<span><i class="pv-sw" style="background:'+cClay+'"></i> Vergleich</span>'
+    +'<span><i class="pv-sw" style="background:#d8d2c0"></i> Standardbereich (nicht gemessen)</span></div>';
+}
+
+function pvFindComparison(kunde){
+  const ks=kunde.rohSeite.map(Number), kf=pvForm(ks);
+  const kg=parseFloat(kunde.gewicht), kh=parseFloat(kunde.groesse);
+  let best=null;
+  entries.forEach(e=>{
+    if(e===kunde) return;
+    if(!Array.isArray(e.rohSeite)||e.rohSeite.length!==12) return;
+    const eg=parseFloat(e.gewicht), eh=parseFloat(e.groesse);
+    if(isNaN(eg)||isNaN(eh)||isNaN(kg)||isNaN(kh)) return;
+    if(Math.abs(eg-kg)>8||Math.abs(eh-kh)>8) return;
+    const fd=pvDist(kf, pvForm(e.rohSeite.map(Number)));
+    if(!best||fd>best.fd) best={e,fd};
+  });
+  return best?best.e:null;
+}
+
+function pvOpenSingle(kunde){
+  const sK=kunde.rohSeite.map(Number);
+  const comp=pvFindComparison(kunde);
+  let html='';
+  if(comp){
+    const sC=comp.rohSeite.map(Number);
+    html='<div class="pv-headline">Fast gleich gebaut — <b>und trotzdem anders.</b></div>'
+      +'<div class="pv-subline">Ihre Messung neben einer anonymen Person mit ähnlicher Größe und Gewicht</div>'
+      +'<div class="pv-facts"><div class="pv-fact"><div class="k">Sie</div><div class="v">'+kunde.gewicht+' kg · '+kunde.groesse+' cm</div></div>'
+      +'<div class="pv-fact"><div class="k">Anonyme Vergleichsperson</div><div class="v">ca. '+pvRound(comp.gewicht,5)+' kg · ca. '+pvRound(comp.groesse,5)+' cm</div></div></div>'
+      +'<div class="pv-charts">'
+      +'<div class="pv-col"><div class="pv-ct"><span class="pv-dot" style="background:'+cOlive+'"></span><span class="who">Ihre Messung</span><span class="sub">Druck '+pvMaxLabel(sK)+'</span></div>'+pvChart(sK,cOlive)+'</div>'
+      +'<div class="pv-col"><div class="pv-ct"><span class="pv-dot" style="background:'+cClay+'"></span><span class="who">Vergleichsperson</span><span class="sub">Druck '+pvMaxLabel(sC)+'</span></div>'+pvChart(sC,cClay)+'</div>'
+      +'</div>'+pvLegend()
+      +'<div class="pv-take">Diese Person ist fast genauso groß und schwer wie Sie — und liegt trotzdem ganz anders auf. <b>Eine Härtegrad-Tabelle würde Ihnen beiden dieselbe Matratze empfehlen.</b></div>';
+  } else {
+    html='<div class="pv-headline">Ihr <b>persönliches Druckbild</b></div>'
+      +'<div class="pv-subline">So liegt Ihr Körper auf der Liegefläche auf</div>'
+      +'<div class="pv-charts single"><div class="pv-col"><div class="pv-ct"><span class="pv-dot" style="background:'+cOlive+'"></span><span class="who">Ihre Messung</span><span class="sub">Druck '+pvMaxLabel(sK)+'</span></div>'+pvChart(sK,cOlive)+'</div></div>'
+      +pvLegend()
+      +'<div class="pv-take">Das ist Ihr gemessenes Druckbild. <b>Genau danach richtet sich, welche Liegefläche zu Ihnen passt</b> — nicht nach Ihrem Gewicht.</div>';
+  }
+  document.getElementById('pvContent').innerHTML=html;
+  document.getElementById('presentView').classList.add('on');
+}
+
+function pvOpenPair(a,b){
+  const sA=a.rohSeite.map(Number), sB=b.rohSeite.map(Number);
+  const html='<div class="pv-headline">Zwei Menschen, ein Bett — <b>und zwei völlig verschiedene Druckbilder.</b></div>'
+    +'<div class="pv-subline">Zwei Menschen, gemeinsam beraten, mit ihren echten Messwerten</div>'
+    +'<div class="pv-facts"><div class="pv-fact"><div class="k">Person A</div><div class="v">'+a.gewicht+' kg · '+a.groesse+' cm</div></div>'
+    +'<div class="pv-fact"><div class="k">Person B</div><div class="v">'+b.gewicht+' kg · '+b.groesse+' cm</div></div></div>'
+    +'<div class="pv-charts">'
+    +'<div class="pv-col"><div class="pv-ct"><span class="pv-dot" style="background:'+cOlive+'"></span><span class="who">Person A</span><span class="sub">Druck '+pvMaxLabel(sA)+'</span></div>'+pvChart(sA,cOlive)+'</div>'
+    +'<div class="pv-col"><div class="pv-ct"><span class="pv-dot" style="background:'+cClay+'"></span><span class="who">Person B</span><span class="sub">Druck '+pvMaxLabel(sB)+'</span></div>'+pvChart(sB,cClay)+'</div>'
+    +'</div>'+pvLegend()
+    +'<div class="pv-take">Sie liegen gemeinsam in einem Bett — aber Ihre Körper drücken an völlig verschiedenen Stellen auf. <b>Deshalb braucht jede Seite ihr eigenes Stützprofil.</b></div>';
+  document.getElementById('pvContent').innerHTML=html;
+  document.getElementById('presentView').classList.add('on');
+}
+
+// Nach dem Speichern: Zeigen-Knopf aktivieren, der die frische Messung praesentiert
+let lastSavedIndex=-1;
+function showAfterSave(idx){
+  lastSavedIndex=idx;
+  const bar=$('showBar');
+  bar.style.display='flex';
+  $('showBarLabel').textContent='"'+(entries[idx].kuerzel||entries[idx].id)+'" gespeichert.';
+  const pairBtn=$('showPair');
+  if(idx>=1 && entries[idx-1]){
+    pairBtn.style.display='inline-block';
+    pairBtn.textContent='Mit "'+(entries[idx-1].kuerzel||entries[idx-1].id)+'" als Paar →';
+  } else {
+    pairBtn.style.display='none';
+  }
+  // Leiste in den Blick holen
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+$('showLast').addEventListener('click',()=>{
+  if(lastSavedIndex<0||!entries[lastSavedIndex])return;
+  pvOpenSingle(entries[lastSavedIndex]);
+});
+// Automatik-Paar: letzte zwei Messungen
+$('showPair').addEventListener('click',()=>{
+  if(lastSavedIndex<1||!entries[lastSavedIndex]||!entries[lastSavedIndex-1])return;
+  pvOpenPair(entries[lastSavedIndex-1], entries[lastSavedIndex]);
+});
+// Bewusste Paar-Auswahl
+$('pairSelect').addEventListener('click',()=>{
+  const picker=$('pairPicker');
+  const show = picker.style.display==='none';
+  picker.style.display = show?'block':'none';
+  if(show){
+    const valids=entries.filter(e=>Array.isArray(e.rohSeite)&&e.rohSeite.length===12);
+    const opts='<option value="">— wählen —</option>'+valids.map(e=>{
+      const k=e.kuerzel?e.kuerzel+' · ':'';
+      return '<option value="'+entries.indexOf(e)+'">'+e.id+' — '+k+(e.gewicht||'?')+' kg, '+(e.groesse||'?')+' cm</option>';
+    }).join('');
+    $('pairA').innerHTML=opts; $('pairB').innerHTML=opts;
+  }
+});
+$('pairShow').addEventListener('click',()=>{
+  const a=$('pairA').value, b=$('pairB').value;
+  if(a===''||b===''||a===b){ alert('Bitte zwei verschiedene Personen wählen.'); return; }
+  pvOpenPair(entries[a], entries[b]);
+});
+function pvCloseView(){
+  document.getElementById('presentView').classList.remove('on');
+}
+$('showBarClose').addEventListener('click',()=>{ $('showBar').style.display='none'; });
+</script>
+</body>
+</html>
