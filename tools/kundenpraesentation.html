@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ihr Liegedruck-Profil · Keiten Schlafberatung</title>
+<style>
+  :root{
+    --cream:#f5f0e8; --paper:#fdfcf9; --line:#ddd6c4;
+    --olive:#778033; --dark:#3b3a19; --muted:#7d7a66;
+    --a:#778033; --b:#a8542a; --neutral:#d8d2c0; --measurebg:#faf7ef;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{font-family:Verdana,Geneva,sans-serif; color:var(--dark); background:var(--cream);
+    padding:20px 16px 60px}
+  .wrap{max-width:1000px; margin:0 auto}
+  h1{font-size:19px; font-weight:normal; margin-bottom:2px}
+  h1 b{color:var(--olive)}
+  .sub{font-size:12px; color:var(--muted); margin-bottom:20px}
+
+  .panel{background:var(--paper); border:1px solid var(--line); padding:18px; margin-bottom:16px}
+  .eyebrow{font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin-bottom:14px}
+
+  .mode{display:flex; gap:8px; margin-bottom:16px}
+  .mbtn{flex:1; padding:12px; border:1px solid var(--line); background:#fff; color:var(--muted);
+    cursor:pointer; font-family:inherit; font-size:13px; text-align:center}
+  .mbtn.active{background:var(--olive); border-color:var(--olive); color:#fff}
+  .mbtn:hover:not(.active){border-color:var(--muted)}
+
+  select{width:100%; padding:9px; border:1px solid var(--line); background:#fff;
+    font-family:inherit; font-size:13px; margin-bottom:8px}
+  label{display:block; font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:5px}
+  .pickrow{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px}
+  .hint{font-size:11px; color:var(--muted); margin-top:6px}
+
+  .present{margin-top:20px}
+  .headline{font-size:22px; font-weight:normal; line-height:1.2; margin-bottom:6px; text-align:center}
+  .headline b{color:var(--olive); font-weight:bold}
+  .subline{font-size:13px; color:var(--muted); text-align:center; margin-bottom:22px}
+
+  .facts{display:flex; margin-bottom:20px; border:1px solid var(--line)}
+  .fact{flex:1; text-align:center; padding:10px 4px; border-right:1px solid var(--line)}
+  .fact:last-child{border-right:none}
+  .fact .k{font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em}
+  .fact .v{font-size:15px; margin-top:3px}
+
+  .charts{display:grid; grid-template-columns:1fr 1fr; gap:28px}
+  .col .ct{display:flex; align-items:center; gap:8px; margin-bottom:28px}
+  .dot{width:12px; height:12px; border-radius:50%}
+  .ct .who{font-size:15px}
+  .ct .sub{font-size:11px; color:var(--muted); margin-left:auto}
+  .chart{position:relative; height:150px; border-bottom:2px solid var(--dark)}
+  .measureband{position:absolute; top:0; bottom:0; background:var(--measurebg);
+    border-left:1px dashed var(--line); border-right:1px dashed var(--line)}
+  .measurelabel{position:absolute; top:-20px; font-size:10px; color:var(--olive); text-align:center}
+  .bars{position:absolute; inset:0; display:flex; align-items:flex-end; gap:2px; padding:0 2px}
+  .bar{flex:1; border-radius:2px 2px 0 0}
+  .bar.neutral{background:var(--neutral)}
+  .zones{position:absolute; top:-18px; left:0; right:0; display:flex; font-size:9px; color:var(--muted)}
+  .zones span{text-align:center}
+  .axlab{position:absolute; bottom:-18px; left:0; right:0; display:flex; justify-content:space-between; font-size:9px; color:var(--muted); padding:0 2px}
+
+  .legend{display:flex; gap:20px; flex-wrap:wrap; margin-top:26px; font-size:11px; color:var(--muted); justify-content:center}
+  .legend span{display:flex; align-items:center; gap:6px}
+  .swatch{width:12px; height:12px; border-radius:2px; display:inline-block}
+
+  .takeaway{margin-top:24px; padding:16px; background:var(--cream); border-left:3px solid var(--olive); font-size:14px; line-height:1.5}
+  .takeaway b{color:var(--olive)}
+
+  .empty{color:var(--muted); font-size:13px; text-align:center; padding:30px 0}
+  @media(max-width:680px){ .charts{grid-template-columns:1fr; gap:40px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Ihr <b>persönliches Liegedruck-Profil</b></h1>
+  <p class="sub">Nach der Messung — zum gemeinsamen Ansehen mit dem Kunden</p>
+
+  <div class="panel">
+    <p class="eyebrow">Ansicht wählen</p>
+    <div class="mode">
+      <div class="mbtn active" data-mode="paar">Paar-Vergleich</div>
+      <div class="mbtn" data-mode="einzel">Einzelberatung (anonymer Vergleich)</div>
+    </div>
+
+    <div id="pickPaar">
+      <div class="pickrow">
+        <div><label>Person A</label><select id="selA"></select></div>
+        <div><label>Person B</label><select id="selB"></select></div>
+      </div>
+      <p class="hint">Zwei gemeinsam beratene Personen auswählen — es werden ihre beiden echten Profile gezeigt.</p>
+    </div>
+
+    <div id="pickEinzel" style="display:none">
+      <div><label>Kunde (aktuelle Messung)</label><select id="selKunde"></select></div>
+      <p class="hint">Das Tool sucht automatisch einen anonymen Vergleichsfall mit ähnlicher Größe und ähnlichem Gewicht, aber möglichst abweichendem Druckbild.</p>
+    </div>
+  </div>
+
+  <div class="panel present" id="present">
+    <div class="empty">Bitte oben eine Auswahl treffen.</div>
+  </div>
+
+</div>
+
+<script>
+const KEY='keis:messungen:v3';
+const HEAD_N=2, FOOT_N=10, PMAX=48, NEUTRAL_H=20;
+const cA=getComputedStyle(document.documentElement).getPropertyValue('--a').trim();
+const cB=getComputedStyle(document.documentElement).getPropertyValue('--b').trim();
+let data=[];
+
+// Datenzugriff: window.storage (Artefakt) oder localStorage (lokal)
+async function load(){
+  let raw=null;
+  if(window.storage){ try{const r=await window.storage.get(KEY); raw=r?r.value:null}catch(e){} }
+  if(!raw){ try{raw=localStorage.getItem(KEY)}catch(e){} }
+  if(raw){ try{data=JSON.parse(raw)||[]}catch(e){data=[]} }
+  // Fallback-Beispieldaten, falls Tool leer (Demo)
+  if(!data.length){ data=DEMO.slice(); }
+}
+
+function rohSeite(e){
+  // v3 speichert rohSeite als Array; Fallback fuer aeltere Struktur
+  if(Array.isArray(e.rohSeite)) return e.rohSeite.map(Number);
+  return null;
+}
+function valid(e){ const s=rohSeite(e); return s && s.length===12 && s.every(x=>!isNaN(x)); }
+
+function label(e){
+  const k=e.kuerzel?e.kuerzel+' · ':'';
+  return e.id+' — '+k+(e.gewicht||'?')+' kg, '+(e.groesse||'?')+' cm';
+}
+
+// aehnlichster Vergleichsfall: nahe bei g/h, aber grosse Formdistanz
+function form(s){ const m=s.reduce((a,b)=>a+b,0)/s.length; return s.map(x=>x-m); }
+function formDist(a,b){ let d=0; for(let i=0;i<12;i++) d+=Math.abs(a[i]-b[i]); return d/12; }
+function findComparison(kunde){
+  const ks=rohSeite(kunde), kf=form(ks);
+  const kg=parseFloat(kunde.gewicht), kh=parseFloat(kunde.groesse);
+  let best=null;
+  data.forEach(e=>{
+    if(e===kunde || !valid(e)) return;
+    const eg=parseFloat(e.gewicht), eh=parseFloat(e.groesse);
+    if(isNaN(eg)||isNaN(eh)) return;
+    // Aehnlichkeitsfenster: +-8 kg, +-8 cm
+    if(Math.abs(eg-kg)>8 || Math.abs(eh-kh)>8) return;
+    const fd=formDist(kf, form(rohSeite(e)));
+    if(!best || fd>best.fd) best={e, fd};
+  });
+  return best ? best.e : null;
+}
+
+// gerundete Eckdaten fuer anonymen Fall (Datenschutz)
+function roundy(v, step){ return Math.round(parseFloat(v)/step)*step; }
+
+function drawChart(container, meas, color, withZones){
+  const chart=document.createElement('div'); chart.className='chart';
+  const total=HEAD_N+12+FOOT_N;
+  const band=document.createElement('div'); band.className='measureband';
+  band.style.left=(HEAD_N/total*100)+'%'; band.style.width=(12/total*100)+'%';
+  chart.appendChild(band);
+  const ml=document.createElement('div'); ml.className='measurelabel';
+  ml.style.left=(HEAD_N/total*100)+'%'; ml.style.width=(12/total*100)+'%';
+  ml.textContent='gemessen'; chart.appendChild(ml);
+
+  if(withZones){
+    const z=document.createElement('div'); z.className='zones';
+    const mk=(w,t)=>{const s=document.createElement('span'); s.style.width=w+'%'; s.textContent=t; return s;};
+    z.appendChild(mk(HEAD_N/total*100,''));
+    z.appendChild(mk(4/total*100,'Schulter'));
+    z.appendChild(mk(4/total*100,'Taille'));
+    z.appendChild(mk(4/total*100,'Becken'));
+    z.appendChild(mk(FOOT_N/total*100,''));
+    chart.appendChild(z);
+  }
+
+  const bars=document.createElement('div'); bars.className='bars';
+  const mkbar=(h,neutral,col)=>{const b=document.createElement('div'); b.className='bar'+(neutral?' neutral':''); b.style.height=h+'%'; if(!neutral)b.style.background=col; return b;};
+  for(let i=0;i<HEAD_N;i++) bars.appendChild(mkbar(NEUTRAL_H,true));
+  meas.forEach(v=> bars.appendChild(mkbar(v/PMAX*100,false,color)));
+  for(let i=0;i<FOOT_N;i++) bars.appendChild(mkbar(NEUTRAL_H,true));
+  chart.appendChild(bars);
+
+  const ax=document.createElement('div'); ax.className='axlab';
+  ax.innerHTML='<span>Kopf</span><span>Füße</span>';
+  chart.appendChild(ax);
+  container.appendChild(chart);
+}
+
+function maxPosLabel(s){
+  const i=s.indexOf(Math.max(...s));
+  if(i<=3) return 'im Schulterbereich';
+  if(i<=7) return 'in der Körpermitte';
+  return 'im unteren Bereich';
+}
+
+function renderPaar(a,b){
+  const sA=rohSeite(a), sB=rohSeite(b);
+  const p=document.getElementById('present'); p.innerHTML='';
+  p.innerHTML='<div class="headline">Sie beide — <b>und trotzdem ein anderer Körper</b> auf der Liegefläche.</div>'
+    +'<div class="subline">Zwei Menschen, gemeinsam beraten, mit ihren echten Messwerten</div>';
+  const facts=document.createElement('div'); facts.className='facts';
+  facts.innerHTML='<div class="fact"><div class="k">Person A</div><div class="v">'+a.gewicht+' kg · '+a.groesse+' cm</div></div>'
+    +'<div class="fact"><div class="k">Person B</div><div class="v">'+b.gewicht+' kg · '+b.groesse+' cm</div></div>';
+  p.appendChild(facts);
+  const charts=document.createElement('div'); charts.className='charts';
+  const cA1=document.createElement('div'); cA1.className='col';
+  cA1.innerHTML='<div class="ct"><span class="dot" style="background:'+cA+'"></span><span class="who">Person A</span><span class="sub">Druck '+maxPosLabel(sA)+'</span></div>';
+  drawChart(cA1, sA, cA, true);
+  const cB1=document.createElement('div'); cB1.className='col';
+  cB1.innerHTML='<div class="ct"><span class="dot" style="background:'+cB+'"></span><span class="who">Person B</span><span class="sub">Druck '+maxPosLabel(sB)+'</span></div>';
+  drawChart(cB1, sB, cB, true);
+  charts.appendChild(cA1); charts.appendChild(cB1);
+  p.appendChild(charts);
+  addLegend(p);
+  addTake(p,'Sie liegen gemeinsam in einem Bett — aber Ihre Körper drücken an völlig verschiedenen Stellen auf. <b>Deshalb braucht jede Seite ihr eigenes Stützprofil.</b>');
+}
+
+function renderEinzel(kunde){
+  const comp=findComparison(kunde);
+  const p=document.getElementById('present'); p.innerHTML='';
+  const sK=rohSeite(kunde);
+  if(!comp){
+    p.innerHTML='<div class="headline">Ihr Profil</div>';
+    const charts=document.createElement('div'); charts.className='charts'; charts.style.gridTemplateColumns='1fr'; charts.style.maxWidth='500px'; charts.style.margin='0 auto';
+    const c=document.createElement('div'); c.className='col';
+    c.innerHTML='<div class="ct"><span class="dot" style="background:'+cA+'"></span><span class="who">Ihre Messung</span><span class="sub">Druck '+maxPosLabel(sK)+'</span></div>';
+    drawChart(c,sK,cA,true); charts.appendChild(c); p.appendChild(charts);
+    addLegend(p);
+    addTake(p,'Noch kein passender anonymer Vergleichsfall in der Datenbank. Ihr eigenes Profil zeigt bereits, wo Ihr Körper aufliegt.');
+    return;
+  }
+  const sC=rohSeite(comp);
+  const cg=roundy(comp.gewicht,5), ch=roundy(comp.groesse,5);
+  p.innerHTML='<div class="headline">Fast gleich gebaut — <b>und trotzdem anders.</b></div>'
+    +'<div class="subline">Ihre Messung neben einer anonymen Person mit ähnlicher Größe und Gewicht</div>';
+  const facts=document.createElement('div'); facts.className='facts';
+  facts.innerHTML='<div class="fact"><div class="k">Sie</div><div class="v">'+kunde.gewicht+' kg · '+kunde.groesse+' cm</div></div>'
+    +'<div class="fact"><div class="k">Anonyme Vergleichsperson</div><div class="v">ca. '+cg+' kg · ca. '+ch+' cm</div></div>';
+  p.appendChild(facts);
+  const charts=document.createElement('div'); charts.className='charts';
+  const c1=document.createElement('div'); c1.className='col';
+  c1.innerHTML='<div class="ct"><span class="dot" style="background:'+cA+'"></span><span class="who">Ihre Messung</span><span class="sub">Druck '+maxPosLabel(sK)+'</span></div>';
+  drawChart(c1,sK,cA,true);
+  const c2=document.createElement('div'); c2.className='col';
+  c2.innerHTML='<div class="ct"><span class="dot" style="background:'+cB+'"></span><span class="who">Vergleichsperson</span><span class="sub">Druck '+maxPosLabel(sC)+'</span></div>';
+  drawChart(c2,sC,cB,true);
+  charts.appendChild(c1); charts.appendChild(c2);
+  p.appendChild(charts);
+  addLegend(p);
+  addTake(p,'Diese Person ist fast genauso groß und schwer wie Sie — und liegt trotzdem ganz anders auf. <b>Eine Härtegrad-Tabelle würde Ihnen beiden dieselbe Matratze empfehlen.</b>');
+}
+
+function addLegend(p){
+  const l=document.createElement('div'); l.className='legend';
+  l.innerHTML='<span><i class="swatch" style="background:'+cA+'"></i> gemessener Auflagedruck</span>'
+    +'<span><i class="swatch" style="background:'+cB+'"></i> Vergleich</span>'
+    +'<span><i class="swatch" style="background:var(--neutral)"></i> Standardbereich (nicht gemessen)</span>';
+  p.appendChild(l);
+}
+function addTake(p,txt){
+  const t=document.createElement('div'); t.className='takeaway'; t.innerHTML=txt; p.appendChild(t);
+}
+
+// UI
+function fillSelects(){
+  const valids=data.filter(valid);
+  const opts='<option value="">— wählen —</option>'+valids.map((e,i)=>'<option value="'+data.indexOf(e)+'">'+label(e)+'</option>').join('');
+  ['selA','selB','selKunde'].forEach(id=>{ document.getElementById(id).innerHTML=opts; });
+}
+let mode='paar';
+document.querySelectorAll('.mbtn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.mbtn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); mode=b.dataset.mode;
+  document.getElementById('pickPaar').style.display= mode==='paar'?'block':'none';
+  document.getElementById('pickEinzel').style.display= mode==='einzel'?'block':'none';
+  document.getElementById('present').innerHTML='<div class="empty">Bitte oben eine Auswahl treffen.</div>';
+}));
+function tryPaar(){
+  const a=document.getElementById('selA').value, b=document.getElementById('selB').value;
+  if(a!==''&&b!==''&&a!==b) renderPaar(data[a],data[b]);
+}
+document.getElementById('selA').addEventListener('change',tryPaar);
+document.getElementById('selB').addEventListener('change',tryPaar);
+document.getElementById('selKunde').addEventListener('change',e=>{
+  if(e.target.value!=='') renderEinzel(data[e.target.value]);
+});
+
+// Demo-Daten, falls Tool leer
+const DEMO=[
+  {id:'M-034',kuerzel:'',gewicht:'65',groesse:'162',rohSeite:[11,13,16,18,20,35,44,38,24,15,12,11]},
+  {id:'M-048',kuerzel:'',gewicht:'67',groesse:'172',rohSeite:[9,17,23,22,18,16,14,15,22,28,23,18]},
+  {id:'M-007',kuerzel:'',gewicht:'66',groesse:'169',rohSeite:[10,16,24,24,21,17,18,25,30,33,25,18]},
+  {id:'M-016',kuerzel:'',gewicht:'90',groesse:'172',rohSeite:[10,22,29,31,33,28,26,32,40,36,23,14]},
+  {id:'M-018',kuerzel:'',gewicht:'91',groesse:'163',rohSeite:[18,29,31,26,29,44,52,40,23,16,15,13]}
+];
+
+(async()=>{ await load(); fillSelects(); })();
+</script>
+</body>
+</html>
